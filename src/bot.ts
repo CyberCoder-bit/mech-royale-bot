@@ -701,6 +701,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
             move = unit(yawTo(P, goal))
             if (goalDist < 3) move = [move[0] * 0.3, move[1] * 0.3]
           }
+          // cover long hunting/looting trips faster, keeping energy for the fight at the end
+          if (PRM.travelBoostE > 0 && (mode === "hunt" || mode === "loot") && goalDist > PRM.travelBoostD && me.energy > PRM.travelBoostE && me.grounded) boost = true
         }
         boost = boost || (outside && me.energy > 20) || (needZone && dNext - nr > 120 && me.energy > 75)
         if (now - lastHurtT < 3 && profile === "fighter") {
