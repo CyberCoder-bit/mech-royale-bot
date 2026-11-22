@@ -53,6 +53,8 @@ export class PathFollower {
   replanEvery = 3
   /** A* time budget per plan (ms) */
   planMs = 6
+  /** A* node-expansion cap per plan (deterministic CPU bound: ~1-2 us per expansion) */
+  planExpand = 2000
   maxClimb = 50
   /** allow jump+jet hops to get unstuck (off in fights: airborne mechs are easy targets) */
   allowHop = true
@@ -95,7 +97,7 @@ export class PathFollower {
     const maxClimb = Math.max(0, Math.min(this.maxClimb, (energy - 8) / climbPerM))
     // long trips: greedier search (far fewer expansions); short ones: near-optimal
     const far = Math.hypot(g.x - x, g.y - y) > 120
-    const res = this.pf.findPath(x, y, z, g.x, g.y, g.z, { maxMs: this.planMs, maxClimb: Math.min(g.climbCap, Math.max(maxClimb, 12)), weight: far ? 1.8 : 1.25 })
+    const res = this.pf.findPath(x, y, z, g.x, g.y, g.z, { maxMs: this.planMs, maxExpand: this.planExpand, maxClimb: Math.min(g.climbCap, Math.max(maxClimb, 12)), weight: far ? 1.8 : 1.25 })
     this.planT = t
     this.path = res
     this.px.length = this.py.length = this.pz.length = this.kinds.length = 0
@@ -136,7 +138,9 @@ export class PathFollower {
     if (t - this.lastUpdateT > 0.5) {
       // not driven for a while (strafing, idle): restart progress tracking
       this.lastProgressT = t
-      this.progressPos = [x, y, z]
+      this.progressPos[0] = x
+      this.progressPos[1] = y
+      this.progressPos[2] = z
       this.stuckLevel = 0
     }
     this.lastUpdateT = t
@@ -146,13 +150,17 @@ export class PathFollower {
       out.state = "arrived"
       this.stuckLevel = 0
       this.lastProgressT = t
-      this.progressPos = [x, y, z]
+      this.progressPos[0] = x
+      this.progressPos[1] = y
+      this.progressPos[2] = z
       return out
     }
 
     // progress / stuck bookkeeping
     if (Math.hypot(x - this.progressPos[0], y - this.progressPos[1]) > 1.5 || Math.abs(z - this.progressPos[2]) > 1.5) {
-      this.progressPos = [x, y, z]
+      this.progressPos[0] = x
+      this.progressPos[1] = y
+      this.progressPos[2] = z
       this.lastProgressT = t
       if (this.stuckLevel > 0 && t > this.hopUntil) this.stuckLevel = 0
     }

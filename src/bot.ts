@@ -145,6 +145,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   let holdUntil = -1
   let duckPt: V2 | null = null
   let duckUntil = -1
+  let xfPt: V3 | null = null
+  let xfUntil = -1
   const pickMem = new Map<number, { kind: WeaponKind; pos: V3; t: number }>()
   let soundPt: { x: number; y: number; t: number } | null = null
   let mode = "idle"
@@ -720,6 +722,52 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         move = dd > 1.2 ? norm2([duckPt[0] - P[0], duckPt[1] - P[1]]) : [0, 0]
         boost = dd > 3 && me.energy > 8
         jump = false
+      }
+
+      // ---------------- crossfire: 2+ attackers with a line on us -> step to where at most one sees us
+      if (PRM.xfireR > 0 && world && follow && profile === "fighter" && mode !== "dodge") {
+        const shooters: V3[] = []
+        for (const tr of tracks.values())
+          if (tr.listed && tr.los && isAttacker(tr)) shooters.push([tr.pos[0], tr.pos[1], tr.pos[2] + 7 * (1 + sizePerCube * tr.cubes)])
+        if (shooters.length >= 2) {
+          if (!xfPt || t >= xfUntil) {
+            const nav = follow.nav
+            const tgtC: V3 | null = target ? centerOf(target) : null
+            const exposed = (x: number, y: number, zz: number) => {
+              let n = 0
+              for (const s of shooters) if (world!.shotClear(s, [x, y, zz + 4.5 * mySize]) || world!.shotClear(s, [x, y, zz + 8.5 * mySize])) n++
+              return n
+            }
+            let best: V3 = [P[0], P[1], P[2]]
+            let bestS = exposed(P[0], P[1], P[2]) * 100
+            for (const r of [5, 9, 13, 17]) {
+              if (r > PRM.xfireR) break
+              for (let k = 0; k < 12; k++) {
+                const a = (k * Math.PI) / 6
+                const x = P[0] + Math.cos(a) * r, y = P[1] + Math.sin(a) * r
+                const nn = nav.nodeAt(x, y, P[2])
+                if (nn < 0) continue
+                const zz = nav.hz[nn]
+                if (Math.abs(zz - P[2]) > 1.5) continue
+                let s = exposed(x, y, zz) * 100 + r
+                if (s >= bestS) continue
+                // keep a line on our own target so the fight goes on (one shooter at a time)
+                if (tgtC && !world.shotClear([x, y, zz + 7 * mySize], tgtC)) s += 60
+                if (s >= bestS || !nav.lineWalkable(P[0], P[1], P[2], x, y, 25)) continue
+                bestS = s
+                best = [x, y, zz]
+              }
+            }
+            xfPt = best
+            xfUntil = t + 0.5
+          }
+        } else xfPt = null
+        if (xfPt && dist2(P, xfPt) > 1.5) {
+          mode = "xfire"
+          move = norm2([xfPt[0] - P[0], xfPt[1] - P[1]])
+          boost = dist2(P, xfPt) > 4 && me.energy > 15
+          jump = false
+        }
       }
 
       // ---------------- mortar dodge: incoming shell landing near us -> get out of the splash

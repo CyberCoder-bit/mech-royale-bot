@@ -31,6 +31,9 @@ export type NavOpts = {
   wallPenDist?: number
 }
 
+/** Bump whenever NavGrid.build changes its output: precomputed data/nav.bin.gz is rejected on mismatch. */
+export const NAV_VERSION = 3
+
 export const EDGE_WALK = 0
 export const EDGE_CLIMB = 1
 export const EDGE_DROP = 2
@@ -68,6 +71,8 @@ export class NavGrid {
   climbCost: number
   dropCost: number
   buildMs = 0
+  /** cumulative ms at the end of each build phase (covers, columns, band, hops) */
+  phaseMs: number[] = []
 
   private constructor(world: World, o: Required<NavOpts>) {
     this.world = world
@@ -97,9 +102,8 @@ export class NavGrid {
     this.xKind = new Uint8Array(0)
   }
 
-  static build(world: World, opts: NavOpts = {}): NavGrid {
-    const t0 = performance.now()
-    const o: Required<NavOpts> = {
+  static options(opts: NavOpts = {}): Required<NavOpts> {
+    return {
       cell: 2,
       radius: 2.7,
       height: 9.3,
@@ -112,6 +116,70 @@ export class NavGrid {
       wallPenDist: 4.5,
       ...opts,
     }
+  }
+
+  /** Identifies the inputs a precomputed grid was built from: build code version, map shape, options. */
+  static signature(world: World, opts: NavOpts = {}): string {
+    let tsum = 0
+    for (let i = 0; i < world.th.length; i += 97) tsum += world.th[i]
+    let psum = 0
+    for (let k = 0; k < world.nPrisms; k++) psum += world.pTop[k] + world.pBase[k] * 3 + (world.pE1[k] - world.pE0[k])
+    return JSON.stringify({ v: NAV_VERSION, nx: world.tnx, ny: world.tny, p: world.nPrisms, t: tsum.toFixed(2), ps: psum.toFixed(2), o: NavGrid.options(opts) })
+  }
+
+  /** Serialize to one buffer: [u32 header length][header JSON][arrays...] (little endian). */
+  serialize(sig: string): Uint8Array {
+    const parts: ArrayBufferView[] = [this.hz, this.st, this.terr, this.ceil, this.pen, this.xStart, this.xTo, this.xCost, this.xDh, this.xKind]
+    const header = new TextEncoder().encode(JSON.stringify({ sig, N: this.N, nh: this.xTo.length, sizes: parts.map((p) => p.byteLength) }))
+    const pad = (n: number) => (4 - (n % 4)) % 4
+    let total = 4 + header.length + pad(header.length)
+    for (const p of parts) total += p.byteLength + pad(p.byteLength)
+    const out = new Uint8Array(total)
+    new DataView(out.buffer).setUint32(0, header.length, true)
+    out.set(header, 4)
+    let off = 4 + header.length + pad(header.length)
+    for (const p of parts) {
+      out.set(new Uint8Array(p.buffer, p.byteOffset, p.byteLength), off)
+      off += p.byteLength + pad(p.byteLength)
+    }
+    return out
+  }
+
+  /** Rebuild from serialize() output; null when the signature does not match this world/options. */
+  static deserialize(world: World, buf: Uint8Array, opts: NavOpts = {}): NavGrid | null {
+    const t0 = performance.now()
+    const bytes = new Uint8Array(buf.byteLength)
+    bytes.set(buf) // aligned copy
+    const hl = new DataView(bytes.buffer).getUint32(0, true)
+    const header = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + hl)))
+    if (header.sig !== NavGrid.signature(world, opts)) return null
+    const g = new NavGrid(world, NavGrid.options(opts))
+    if (header.N !== g.N) return null
+    const pad = (n: number) => (4 - (n % 4)) % 4
+    let off = 4 + hl + pad(hl)
+    const take = <T>(ctor: new (b: ArrayBuffer, o: number, n: number) => T, bpe: number, size: number): T => {
+      const v = new ctor(bytes.buffer, off, size / bpe)
+      off += size + pad(size)
+      return v
+    }
+    const s = header.sizes as number[]
+    g.hz = take(Float32Array, 4, s[0])
+    g.st = take(Uint8Array, 1, s[1])
+    g.terr = take(Uint8Array, 1, s[2])
+    g.ceil = take(Float32Array, 4, s[3])
+    g.pen = take(Float32Array, 4, s[4])
+    g.xStart = take(Int32Array, 4, s[5])
+    g.xTo = take(Int32Array, 4, s[6])
+    g.xCost = take(Float32Array, 4, s[7])
+    g.xDh = take(Float32Array, 4, s[8])
+    g.xKind = take(Uint8Array, 1, s[9])
+    g.buildMs = performance.now() - t0
+    return g
+  }
+
+  static build(world: World, opts: NavOpts = {}): NavGrid {
+    const t0 = performance.now()
+    const o = NavGrid.options(opts)
     const g = new NavGrid(world, o)
     const { cs, ox, oy, w, h, nCells } = g
     const H = o.height, R = o.radius, SU = o.stepUp
@@ -149,6 +217,7 @@ export class NavGrid {
       return false
     }
 
+    g.phaseMs.push(performance.now() - t0)
     // 2. standing surfaces per column
     const ivB: number[] = [], ivT: number[] = [], order: number[] = []
     const surf: number[] = [], surfCeil: number[] = []
@@ -203,6 +272,7 @@ export class NavGrid {
         }
       }
 
+    g.phaseMs.push(performance.now() - t0)
     // 3. clearance band and near-wall penalty around prism walls
     const RP = R + o.wallPenDist
     for (let k = 0; k < world.nPrisms; k++) {
@@ -241,6 +311,7 @@ export class NavGrid {
       }
     }
 
+    g.phaseMs.push(performance.now() - t0)
     // 4. hop edges across band cells (roof edge drops, wall climbs onto roofs)
     const hopFrom: number[] = [], hopTo: number[] = [], hopCost: number[] = [], hopDh: number[] = [], hopKind: number[] = []
     for (let j = 0; j < h; j++)
@@ -261,6 +332,9 @@ export class NavGrid {
           if (!nearBand) continue
           for (let d = 0; d < 8; d++) {
             const diag = d >= 4
+            // highest surface crossed between u and the landing cell: a hop may not pass over anything
+            // taller than its higher end (that is a wall in the way, not a ledge)
+            let midTop = -Infinity
             for (let s = 1; s <= 4; s++) {
               const ii = i + DX[d] * s, jj = j + DY[d] * s
               if (ii < 0 || jj < 0 || ii >= w || jj >= h) break
@@ -276,6 +350,7 @@ export class NavGrid {
                 }
                 stop = true
                 if (s === 1) continue // adjacent: handled by the implicit edges
+                if (midTop > Math.max(hu, g.hz[v]) + SU) continue // a wall between: not walkable over
                 const len = s * cs * (diag ? Math.SQRT2 : 1)
                 if (dh > 0) {
                   if (dh > o.maxJet || g.ceil[u] < dh + H) continue
@@ -285,6 +360,12 @@ export class NavGrid {
                 }
               }
               if (stop) break
+              // this cell is crossed on the way to a farther landing: remember its highest surface
+              for (let l2 = 0; l2 < 2; l2++) {
+                const q = 2 * cc + l2
+                if (g.st[q] !== 0 && g.hz[q] > midTop) midTop = g.hz[q]
+              }
+              if (g.st[2 * cc] === 0 && g.st[2 * cc + 1] === 0) midTop = Infinity // off the map or no surface
             }
           }
         }
@@ -306,6 +387,7 @@ export class NavGrid {
       g.xKind[p] = hopKind[q]
     }
     g.buildMs = performance.now() - t0
+    g.phaseMs.push(g.buildMs)
     return g
   }
 
@@ -513,7 +595,7 @@ export class Pathfinder {
     const nav = this.nav
     const t0 = performance.now()
     const maxMs = opts.maxMs ?? 8
-    const maxExpand = opts.maxExpand ?? 200000
+    const maxExpand = opts.maxExpand ?? 8000 // deterministic cap (~1-2 us per expansion); pass more explicitly if needed
     const maxClimb = Math.min(opts.maxClimb ?? nav.maxJet, nav.maxJet)
     const W = opts.weight ?? 1.25
     const extra = opts.extraCost

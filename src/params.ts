@@ -90,6 +90,8 @@ export const P = {
   /** Boost on hunting/looting trips longer than travelBoostD m while energy is above travelBoostE (0 = off). */
   travelBoostE: 0,
   travelBoostD: 80,
+  /** Crossfire: with 2+ attackers holding a line on us, step (up to this radius, m) to where at most one does (0 = off). */
+  xfireR: 0,
   laserSwitchS: 0.12,
   /** Fight: walk over visible cubes within this range (m) while fighting (0 = off). */
   cubeGrab: 0,
@@ -103,7 +105,7 @@ export const P = {
   /** Approach detector: a mech walking straight at us this long (s) counts as a threat (0 = off). */
   approachS: 3,
   /** JIT warm-up of the world/nav code at hello (ms of wall time, 0 = off). */
-  warmMs: 400,
+  warmMs: 0,
   /** Cold-start guard: skip loading the map / nav / warm-up once the process is this old (ms since start). */
   initSkipMs: 6000,
   /** A* budget per plan: expansions (deterministic; 0 = use the follower's time budget) and a wall-time safety cap (ms). */
