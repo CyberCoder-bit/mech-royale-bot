@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Run MR_PARAMS variants of a frozen bot snapshot on the simulator agent's calibrated squad sim.
+# Run MR_PARAMS variants of a frozen bot snapshot on the calibrated sim (sim/run.ts). MODE=ffa for FFA; BASE=<json> baseline.
 #   tools/variants.sh <snapshot> <seeds> 'name|{"json":1}' ...
 # Results: runs/var-<snapshot>-<name>.json; summary vs runs/var-<snapshot>-base.json (or the first).
 set -uo pipefail
 cd "$(dirname "$0")/.."
-SIM=/home/jason/builders/mech_royale/.claude/worktrees/agent-aed60f8182b1e1007/sim/run.ts
+SIM="$PWD/sim/run.ts"
 snap="$1"; seeds="$2"; shift 2
 bot="inproc:$PWD/runs/snap/$snap/src/bot.ts"
 for v in "$@"; do
