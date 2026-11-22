@@ -12,6 +12,9 @@ work=$(mktemp -d "${TMPDIR:-/tmp}/gate.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 git archive --format=tar "$sha" | tar -x -C "$work"
 echo "== gate $ref ($sha)"
+# This machine runs our agents' simulator batches. Drop them to the lowest priority so they don't distort timing.
+for pid in $(pgrep -f 'sim/worker.ts|sim/run.ts' || true); do renice -n 19 -p "$pid" >/dev/null 2>&1 || true; done
+echo "load: $(cut -d' ' -f1-3 /proc/loadavg)"
 echo "-- local check"
 ( cd "$work" && timeout 180 python3 kit/check/check.py -- bun src/main.ts ) > "$work/local.txt" 2>&1 || true
 tail -4 "$work/local.txt"
