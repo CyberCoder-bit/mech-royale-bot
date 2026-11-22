@@ -425,11 +425,24 @@ export class World {
     return this.gen
   }
 
+  /** Test the prisms of grid cell c (not yet stamped with gen) against segment a-b; hit index or -1. */
+  private prismsInCell(c: number, gen: number, ax: number, ay: number, az: number, bx: number, by: number, bz: number): number {
+    const items = this.gpItems, stamp = this.pStamp
+    for (let q = this.gpStart[c], end = this.gpStart[c + 1]; q < end; q++) {
+      const k = items[q]
+      if (stamp[k] === gen) continue
+      stamp[k] = gen
+      if (this.segHitsPrism(k, ax, ay, az, bx, by, bz)) return k
+    }
+    return -1
+  }
+
   /**
-   * Walk the spatial grid cells along a 2D segment (Amanatides-Woo), calling fn(cell) until it
-   * returns true. Returns whether fn returned true.
+   * Index of the first prism (in traversal order) hit by segment a-b, or -1. Walks the spatial
+   * grid cells along the segment (Amanatides-Woo); allocation-free.
    */
-  private walkCells(ax: number, ay: number, bx: number, by: number, fn: (c: number) => boolean): boolean {
+  segPrism(ax: number, ay: number, az: number, bx: number, by: number, bz: number): number {
+    const gen = this.nextGen()
     const gx = (ax - this.gOx) / GRID, gy = (ay - this.gOy) / GRID
     const hx = (bx - this.gOx) / GRID, hy = (by - this.gOy) / GRID
     let i = Math.floor(gx), j = Math.floor(gy)
@@ -440,8 +453,12 @@ export class World {
     let tmx = dx !== 0 ? (dx > 0 ? i + 1 - gx : gx - i) * tdx : Infinity
     let tmy = dy !== 0 ? (dy > 0 ? j + 1 - gy : gy - j) * tdy : Infinity
     const maxIt = Math.abs(ie - i) + Math.abs(je - j) + 2
+    const gnx = this.gnx, gny = this.gny
     for (let it = 0; it <= maxIt; it++) {
-      if (i >= 0 && j >= 0 && i < this.gnx && j < this.gny && fn(j * this.gnx + i)) return true
+      if (i >= 0 && j >= 0 && i < gnx && j < gny) {
+        const k = this.prismsInCell(j * gnx + i, gen, ax, ay, az, bx, by, bz)
+        if (k >= 0) return k
+      }
       if (i === ie && j === je) break
       if (tmx < tmy) {
         tmx += tdx
@@ -451,38 +468,72 @@ export class World {
         j += sj
       }
     }
-    return false
-  }
-
-  /** Index of the first prism (in traversal order) hit by segment a-b, or -1. */
-  segPrism(ax: number, ay: number, az: number, bx: number, by: number, bz: number): number {
-    const gen = this.nextGen()
-    let hit = -1
-    this.walkCells(ax, ay, bx, by, (c) => {
-      for (let q = this.gpStart[c], end = this.gpStart[c + 1]; q < end; q++) {
-        const k = this.gpItems[q]
-        if (this.pStamp[k] === gen) continue
-        this.pStamp[k] = gen
-        if (this.segHitsPrism(k, ax, ay, az, bx, by, bz)) {
-          hit = k
-          return true
-        }
-      }
-      return false
-    })
-    return hit
+    return -1
   }
 
   /** Can a shot fly from a to b? Prisms and terrain block; trees never do. */
   shotClear(a: ArrayLike<number>, b: ArrayLike<number>): boolean {
-    if (this.segPrism(a[0], a[1], a[2], b[0], b[1], b[2]) >= 0) return false
-    return this.terrainClear(a[0], a[1], a[2], b[0], b[1], b[2])
+    const ax = a[0], ay = a[1], az = a[2], bx = b[0], by = b[1], bz = b[2]
+    if (this.segPrism(ax, ay, az, bx, by, bz) >= 0) return false
+    return this.terrainClear(ax, ay, az, bx, by, bz)
+  }
+
+  /** crown length accumulated by treesInCell for the current canopyAlong call */
+  private canopyAcc = 0
+
+  /**
+   * Trees of grid cell c (not yet stamped with gen) against segment a-b: adds crown chord lengths
+   * to canopyAcc. Returns 1 when a trunk blocks, 2 when canopyAcc passed `limit`, else 0.
+   */
+  private treesInCell(
+    c: number, gen: number, ax: number, ay: number, az: number, dx: number, dy: number, dz: number,
+    len: number, l2: number, limit: number, trunks: boolean,
+  ): number {
+    const items = this.gtItems, stamp = this.tStamp
+    for (let q = this.gtStart[c], end = this.gtStart[c + 1]; q < end; q++) {
+      const k = items[q]
+      if (stamp[k] === gen) continue
+      stamp[k] = gen
+      // trunk: vertical cylinder from ground to crown base
+      if (trunks && l2 > 1e-9) {
+        const tx = this.trX[k] - ax, ty = this.trY[k] - ay
+        let t = (tx * dx + ty * dy) / l2
+        if (t < 0) t = 0
+        else if (t > 1) t = 1
+        const ox = ax + dx * t - this.trX[k], oy = ay + dy * t - this.trY[k]
+        const r = this.trTR[k]
+        if (ox * ox + oy * oy < r * r) {
+          const z = az + dz * t
+          if (z >= this.trZ[k] && z <= this.trCB[k]) return 1
+        }
+      }
+      // crown ellipsoid
+      const R = this.trCR[k]
+      const hh = (this.trTop[k] - this.trCB[k]) * 0.5
+      if (R <= 0 || hh <= 0) continue
+      const cz = this.trCB[k] + hh
+      const px = (ax - this.trCX[k]) / R, py = (ay - this.trCY[k]) / R, pz = (az - cz) / hh
+      const vx = dx / R, vy = dy / R, vz = dz / hh
+      const A = vx * vx + vy * vy + vz * vz
+      const B = 2 * (px * vx + py * vy + pz * vz)
+      const C = px * px + py * py + pz * pz - 1
+      const disc = B * B - 4 * A * C
+      if (disc <= 0 || A < 1e-12) continue
+      const sq = Math.sqrt(disc)
+      let t1 = (-B - sq) / (2 * A), t2 = (-B + sq) / (2 * A)
+      if (t1 < 0) t1 = 0
+      if (t2 > 1) t2 = 1
+      if (t2 <= t1) continue
+      this.canopyAcc += (t2 - t1) * len
+      if (this.canopyAcc > limit) return 2
+    }
+    return 0
   }
 
   /**
    * Crown length along segment a-b (sum over trees, crowns as ellipsoids filling
    * [crownBase, top] with radius crownR) and whether a trunk blocks it. Stops early once the
-   * length exceeds `limit`. Returns -1 when a trunk blocks.
+   * length exceeds `limit`. Returns -1 when a trunk blocks. Allocation-free.
    */
   canopyAlong(ax: number, ay: number, az: number, bx: number, by: number, bz: number, limit = Infinity, trunks = true): number {
     if (this.nTrees === 0) return 0
@@ -490,52 +541,34 @@ export class World {
     const dx = bx - ax, dy = by - ay, dz = bz - az
     const len = Math.sqrt(dx * dx + dy * dy + dz * dz)
     const l2 = dx * dx + dy * dy
-    let acc = 0
-    let blocked = false
-    this.walkCells(ax, ay, bx, by, (c) => {
-      for (let q = this.gtStart[c], end = this.gtStart[c + 1]; q < end; q++) {
-        const k = this.gtItems[q]
-        if (this.tStamp[k] === gen) continue
-        this.tStamp[k] = gen
-        // trunk: vertical cylinder from ground to crown base
-        if (trunks && l2 > 1e-9) {
-          const tx = this.trX[k] - ax, ty = this.trY[k] - ay
-          let t = (tx * dx + ty * dy) / l2
-          if (t < 0) t = 0
-          else if (t > 1) t = 1
-          const ox = ax + dx * t - this.trX[k], oy = ay + dy * t - this.trY[k]
-          const r = this.trTR[k]
-          if (ox * ox + oy * oy < r * r) {
-            const z = az + dz * t
-            if (z >= this.trZ[k] && z <= this.trCB[k]) {
-              blocked = true
-              return true
-            }
-          }
-        }
-        // crown ellipsoid
-        const R = this.trCR[k]
-        const hh = (this.trTop[k] - this.trCB[k]) * 0.5
-        if (R <= 0 || hh <= 0) continue
-        const cz = this.trCB[k] + hh
-        const px = (ax - this.trCX[k]) / R, py = (ay - this.trCY[k]) / R, pz = (az - cz) / hh
-        const vx = dx / R, vy = dy / R, vz = dz / hh
-        const A = vx * vx + vy * vy + vz * vz
-        const B = 2 * (px * vx + py * vy + pz * vz)
-        const C = px * px + py * py + pz * pz - 1
-        const disc = B * B - 4 * A * C
-        if (disc <= 0 || A < 1e-12) continue
-        const sq = Math.sqrt(disc)
-        let t1 = (-B - sq) / (2 * A), t2 = (-B + sq) / (2 * A)
-        if (t1 < 0) t1 = 0
-        if (t2 > 1) t2 = 1
-        if (t2 <= t1) continue
-        acc += (t2 - t1) * len
-        if (acc > limit) return true
+    this.canopyAcc = 0
+    const gx = (ax - this.gOx) / GRID, gy = (ay - this.gOy) / GRID
+    const hx = (bx - this.gOx) / GRID, hy = (by - this.gOy) / GRID
+    let i = Math.floor(gx), j = Math.floor(gy)
+    const ie = Math.floor(hx), je = Math.floor(hy)
+    const ddx = hx - gx, ddy = hy - gy
+    const si = ddx > 0 ? 1 : -1, sj = ddy > 0 ? 1 : -1
+    const tdx = ddx !== 0 ? Math.abs(1 / ddx) : Infinity, tdy = ddy !== 0 ? Math.abs(1 / ddy) : Infinity
+    let tmx = ddx !== 0 ? (ddx > 0 ? i + 1 - gx : gx - i) * tdx : Infinity
+    let tmy = ddy !== 0 ? (ddy > 0 ? j + 1 - gy : gy - j) * tdy : Infinity
+    const maxIt = Math.abs(ie - i) + Math.abs(je - j) + 2
+    const gnx = this.gnx, gny = this.gny
+    for (let it = 0; it <= maxIt; it++) {
+      if (i >= 0 && j >= 0 && i < gnx && j < gny) {
+        const r = this.treesInCell(j * gnx + i, gen, ax, ay, az, dx, dy, dz, len, l2, limit, trunks)
+        if (r === 1) return -1
+        if (r === 2) return this.canopyAcc
       }
-      return false
-    })
-    return blocked ? -1 : acc
+      if (i === ie && j === je) break
+      if (tmx < tmy) {
+        tmx += tdx
+        i += si
+      } else {
+        tmy += tdy
+        j += sj
+      }
+    }
+    return this.canopyAcc
   }
 
   /**

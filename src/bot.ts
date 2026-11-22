@@ -12,6 +12,7 @@ import { angDiff, clamp, dist2, dist3, rng, unit, yawTo, type V2, type V3 } from
 import { P as PRM, type Profile } from "./params.ts"
 import { loadWorld, navFor, PathFollower, type World } from "./world/index.ts"
 import { bestSpots, loadExposure } from "./expo/exposure.ts"
+import { FfaBrain } from "./brain/ffa.ts" // FFA hook
 
 const WEAPON_PREF: WeaponKind[] = PRM.weaponPref
 const UPGRADE_PREF = PRM.upgradePref
@@ -117,6 +118,13 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
       log("exposure load failed", e)
     }
   }
+  // ==== FFA hook (1/2): FFA brain (src/brain/ffa.ts), only when the map model loaded (cold-start guard) ====
+  let ffaBrain: FfaBrain | null = null
+  if (world && follow)
+    try {
+      ffaBrain = new FfaBrain(hello)
+    } catch {}
+  // ==== end FFA hook ====
 
   // ---- per-instance state
   let kills = 0
@@ -225,6 +233,10 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         if (ffaEvidence >= 2) ffa = true
       }
       const sq = !ffa
+      // ==== FFA hook (2/2): tick() always updates its memory; it acts only after 2+ deaths we didn't cause, before 150 s ====
+      const ffaAct = ffaBrain?.tick(obs, ffa)
+      if (ffaAct) return ffaAct
+      // ==== end FFA hook ====
 
       if (obs.offer && obs.offer.choices?.length) act.pick = pickUpgrade(obs.offer.choices)
 
