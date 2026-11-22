@@ -17,7 +17,7 @@ export const P = {
     "mortar_splash", "lightning_chain", "laser_pierce", "reactor", "capacitor", "jets",
   ],
   /** Retreat when HP fraction is below this and the target is healthier (by retreatMargin) or we face several enemies. */
-  retreatHp: 0.35,
+  retreatHp: 0,
   retreatMargin: 0.1,
   /** Preferred fighting distance (m) by primary weapon. */
   prefRange: { lightning: 20, laser: 110, mortar: 120, gunWithLightning: 30, gun: 70 },
