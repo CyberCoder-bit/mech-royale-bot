@@ -8,3 +8,6 @@ node_modules/
 *:Zone.Identifier
 mechfight-kit.tar.gz
 recipes.json
+
+# agent worktrees and local Claude state
+.claude/
