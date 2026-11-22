@@ -8,3 +8,4 @@ node_modules/
 *:Zone.Identifier
 mechfight-kit.tar.gz
 recipes.json
+__pycache__/

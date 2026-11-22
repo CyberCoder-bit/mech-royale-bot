@@ -25,6 +25,8 @@ for (let i = 0; i < names.length; i++) {
 }
 console.log(`setup ${(performance.now() - t0).toFixed(0)} ms`)
 let nextPrint = 0
+let maxAct = 0, slowActs = 0
+const VERBOSE = process.env.VERBOSE === '1'
 let tAct = 0,
   tObs = 0,
   tSim = 0
@@ -37,7 +39,14 @@ while (!m.over) {
   const obs = alive.map((x) => m.observe(x))
   m.clearEvents()
   const a1 = performance.now()
-  const acts = alive.map((x, k) => agents[x.id].act(obs[k]))
+  const acts = alive.map((x, k) => {
+    const q0 = performance.now()
+    const r = agents[x.id].act(obs[k])
+    const q = performance.now() - q0
+    if (q > maxAct) maxAct = q
+    if (q > 5) slowActs++
+    return r
+  })
   const a2 = performance.now()
   alive.forEach((x, k) => m.applyAction(x, acts[k], true))
   m.advance()
@@ -50,12 +59,13 @@ while (!m.over) {
     const z = m.zoneNow()
     console.log(`t=${m.t.toFixed(1)} alive=${m.aliveCount} zone c=(${z.cx.toFixed(0)},${z.cy.toFixed(0)}) r=${z.r.toFixed(0)} dps=${z.dps}`)
     for (const x of m.mechs) {
-      if (!x.alive) continue
+      if (!x.alive || !VERBOSE) continue
       const ag = agents[x.id]
       const dz = Math.hypot(x.x - z.cx, x.y - z.cy)
       console.log(`  ${String(x.id).padStart(2)} ${x.name.padEnd(18)} pos=(${x.x.toFixed(0)},${x.y.toFixed(0)},${x.z.toFixed(1)}) hp=${x.hp.toFixed(0)} dz=${dz.toFixed(0)} mode=${ag.mode ?? "-"} path=${ag.path ? ag.path.length / 2 : "-"} stuck=${x.stats.stuckSeconds.toFixed(0)} w=${x.slots.map((s) => s?.kind ?? "-").join("/")}`)
     }
   }
 }
+console.log(`max act ${maxAct.toFixed(1)} ms, acts > 5 ms: ${slowActs}`)
 console.log(`end t=${m.t.toFixed(1)} wall ${(performance.now() - t0).toFixed(0)} ms  (obs ${tObs.toFixed(0)} act ${tAct.toFixed(0)} sim ${tSim.toFixed(0)})`)
 for (const x of m.mechs) console.log(`  ${x.id} ${x.name} place ${x.place} death ${x.deathT?.toFixed(1)} by ${x.killedBy} with ${x.killedWith} zoneS ${x.stats.zoneSeconds.toFixed(1)} stuck ${x.stats.stuckSeconds.toFixed(1)}`)

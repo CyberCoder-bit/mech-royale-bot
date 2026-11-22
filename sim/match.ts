@@ -892,14 +892,13 @@ export class Match {
     m.vy += ey
     // vertical
     if (!m.grounded) {
+      // jets add thrust capped at max_rise_speed, then gravity (measured effective rise 10 - 22*0.05 = 8.9 m/s)
+      if (m.jetting && m.vz < ms.max_rise_speed) m.vz = Math.min(ms.max_rise_speed, m.vz + ms.jet_accel * dt)
       m.vz -= ms.gravity * dt
-      if (m.jetting) {
-        m.vz += ms.jet_accel * dt
-        if (m.vz > ms.max_rise_speed) m.vz = Math.max(ms.max_rise_speed, m.vz - ms.jet_accel * dt)
-      }
     }
+    // energy regen restarts on the 14th tick after the last spend (measured on the real stream)
     if (spend) m.lastSpend = this.t
-    else if (this.t - m.lastSpend >= ms.energy_regen_delay) m.energy = Math.min(ms.energy, m.energy + ms.energy_regen * dt)
+    else if (this.t - m.lastSpend >= ms.energy_regen_delay + 2 * dt - 1e-9) m.energy = Math.min(ms.energy, m.energy + ms.energy_regen * dt)
     // horizontal move with collision
     const ox = m.x,
       oy = m.y,
@@ -1990,7 +1989,8 @@ export class Match {
   /** distribute pending sounds and beams to every mech's per-decision lists; call before observe() */
   distributePerception() {
     const sc = this.cfg.sound
-    const noise = ((sc.bearing_noise_deg ?? 7) * Math.PI) / 180
+    // measured bearing noise SD on the real stream is ~9.5 deg with bearing_noise_deg 7
+    const noise = ((sc.bearing_noise_deg ?? 7) * (9.5 / 7) * Math.PI) / 180
     for (const m of this.mechs) {
       if (!m.alive) continue
       m.sounds = []

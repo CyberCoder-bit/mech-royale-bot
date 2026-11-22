@@ -4,7 +4,8 @@
  *   bun sim/run.ts --mode ffa --seeds 48 --bot "bun src/main.ts" --field "inproc:src/bot.ts*4,house:expert*6,house:sniper*3,house:brawler*3"
  *   bun sim/run.ts --mode squad --seeds 48 --bot inproc:src/bot.ts
  *   bun sim/run.ts --compare runs/a.json runs/b.json
- * Extra: --squad "t_all=330,hunters_know_position=1,base_hunters=1" --budget-ms 50 --stderr runs/logs --name label
+ * Extra: --squad "t_all=330,hunters_know_position=1,base_hunters=1,nonhunter_engage_m=60" --house "aim_mul=1,react_mul=1,lead_mul=1"
+ *        --budget-ms 50 --stderr runs/logs --name label --quiet
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs"
 import { dirname, join } from "node:path"
@@ -171,6 +172,7 @@ async function main() {
   else if (mode === "squad") field = parseField("house:easy*4,house:medium*4,house:hard*4,house:expert*3")
   else field = parseField("house:expert*6,house:sniper*3,house:brawler*3,house:thirdparty*2,house:farmer*1")
   const squad = parseSquad(o.squad as string | undefined)
+  const house = parseSquad(o.house as string | undefined) as Record<string, number>
   const replayDir = o.replay ? String(o.replay) : null
   const label = (o.name as string) ?? `${mode}_${botStr.replace(/[^a-zA-Z0-9]+/g, "_")}`
   const outPath = (o.out as string) ?? join(ROOT, "runs", `${label}_${Date.now()}.json`)
@@ -179,7 +181,7 @@ async function main() {
   const specs: MatchSpec[] = []
   for (let i = 0; i < nSeeds; i++) {
     const seed = seedStart + i
-    specs.push({ seed, mode, test, field, squad, replay: replayDir ? join(replayDir, `${label}_seed${seed}.jsonl.gz`) : null, budgetMs: o["budget-ms"] ? parseFloat(o["budget-ms"] as string) : undefined, stderrDir })
+    specs.push({ seed, mode, test, field, squad, house, replay: replayDir ? join(replayDir, `${label}_seed${seed}.jsonl.gz`) : null, budgetMs: o["budget-ms"] ? parseFloat(o["budget-ms"] as string) : undefined, stderrDir })
   }
   const t0 = performance.now()
   const results: MatchResult[] = []
@@ -243,7 +245,7 @@ async function main() {
   const wall = (performance.now() - t0) / 1000
   results.sort((a, b) => a.seed - b.seed)
   const summary = summarize(results)
-  const out = { label, mode, bot: botStr, field: field.map((f) => (f.type === "house" ? `house:${f.arch}` : f.type === "inproc" ? `inproc:${f.path}` : f.cmd)), squad, seeds: [seedStart, seedStart + nSeeds - 1], wall_s: wall, matches_per_min: (results.length / wall) * 60, summary, errors, results }
+  const out = { label, mode, bot: botStr, field: field.map((f) => (f.type === "house" ? `house:${f.arch}` : f.type === "inproc" ? `inproc:${f.path}` : f.cmd)), squad, house, seeds: [seedStart, seedStart + nSeeds - 1], wall_s: wall, matches_per_min: (results.length / wall) * 60, summary, errors, results }
   mkdirSync(dirname(outPath), { recursive: true })
   writeFileSync(outPath, JSON.stringify(out, null, 1))
   printSummary(label, summary)

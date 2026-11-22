@@ -41,6 +41,24 @@ export function setArchetypes(a: { archetypes: Record<string, Archetype>; tiers:
   archCache = a
 }
 
+/** global house-bot skill knobs (sim calibration): multiply aim sigma / reaction / lead of every archetype */
+export interface HouseTuning {
+  aim_mul: number
+  react_mul: number
+  lead_mul: number
+  /** house bots hop (jump + jet) while fighting with this probability per second */
+  hop_rate: number
+}
+export const DEFAULT_TUNING: HouseTuning = { aim_mul: 1, react_mul: 1, lead_mul: 1, hop_rate: 0 }
+
+/** sim-only behaviour knobs per archetype (archetypes.json values win when present) */
+const SIM_EXTRAS: Record<string, Partial<Archetype>> = {
+  thirdparty: { third_party: true, aggression: 0.4 },
+  farmer: { aggression: 0.3, use_drops: true },
+  expert: { use_drops: true },
+  sniper: { engage_range_m: 200 },
+}
+
 const TIER_RANK: Record<string, number> = { easy: 0, medium: 1, hard: 2, expert: 3 }
 const TAU = Math.PI * 2
 const wrap = (a: number) => {
@@ -62,8 +80,12 @@ export interface SquadParams {
   base_hunters: number
   /** extra hunters added per this many seconds (0 = off) */
   escalate_every_s: number
+  /** non-hunters engage the test bot only inside this range (or when it attacked them recently) */
+  nonhunter_engage_m: number
+  /** seconds a non-hunter keeps fighting back after the test bot damaged it */
+  retaliate_s: number
 }
-export const DEFAULT_SQUAD: SquadParams = { t_all: 330, hunters_know_position: true, first_hunter_t: 0, base_hunters: 1, escalate_every_s: 0 }
+export const DEFAULT_SQUAD: SquadParams = { t_all: 330, hunters_know_position: true, first_hunter_t: 0, base_hunters: 1, escalate_every_s: 0, nonhunter_engage_m: 60, retaliate_s: 6 }
 
 export class SquadController {
   testId: number
@@ -171,11 +193,19 @@ export class HouseAgent implements Agent {
   roamT = 0
   lastHitBy = new Map<number, number>()
   mode = ""
-  constructor(arch: string, squad: SquadController | null, team: number) {
+  bridgeGoal: [number, number] | null = null
+  bridgePt: [number, number] | null = null
+  climbState = 0
+  climbT = 0
+  zoneLockUntil = 0
+  tune: HouseTuning
+  constructor(arch: string, squad: SquadController | null, team: number, tune: Partial<HouseTuning> = {}) {
     const A = loadArchetypes()
     const real = A.archetypes[arch] ? arch : A.tiers[arch] ?? "expert"
     this.archName = arch
-    this.a = A.archetypes[real] ?? A.archetypes.expert
+    this.tune = { ...DEFAULT_TUNING, ...tune }
+    const base = { ...(SIM_EXTRAS[real] ?? {}), ...(A.archetypes[real] ?? A.archetypes.expert) } as Archetype
+    this.a = { ...base, aim_sigma_deg: base.aim_sigma_deg * this.tune.aim_mul, reaction_s: base.reaction_s * this.tune.react_mul, lead_frac: Math.min(1, base.lead_frac * this.tune.lead_mul) }
     this.name = `house:${arch}`
     this.squad = squad
     this.team = team
@@ -257,8 +287,12 @@ export class HouseAgent implements Agent {
     const dNext = d2(x, y, zone.next_center[0], zone.next_center[1])
     const dCur = d2(x, y, zone.center[0], zone.center[1])
     const safeR = Math.max(nextR * 0.8 - 4, nextR - 25, 0)
-    const travel = Math.max(0, dNext - safeR) / 10
-    const zoneUrgent = !s.in_zone || dCur > zone.radius - 8 || (dNext > safeR && t >= zone.shrink_start - travel - 12) || nextR <= 30
+    const travel = Math.max(0, dNext - safeR) / 9
+    const mustMove = !s.in_zone || dCur > zone.radius - 8 || (dNext > safeR && t >= zone.shrink_start - travel - 15) || nextR <= 30
+    if (mustMove) this.zoneLockUntil = t + 4
+    const zoneUrgent = mustMove || (t < this.zoneLockUntil && dNext > safeR - 15)
+    // goals (loot, crates, drops, roaming) must lie inside this circle once a shrink is near
+    const goalOk = (gx: number, gy: number) => !(zoneUrgent || t > zone.shrink_start - 45) || d2(gx, gy, zone.next_center[0], zone.next_center[1]) <= safeR
     // ---------------- target selection
     const maxHp = s.max_hp
     const hpFrac = s.hp / maxHp
@@ -269,8 +303,9 @@ export class HouseAgent implements Agent {
     for (const tr of this.tracks.values()) {
       if (tr.npc) continue
       const d = d2(x, y, tr.x, tr.y)
-      const attackedMe = (this.lastHitBy.get(tr.id) ?? -99) > t - 4
+      const attackedMe = (this.lastHitBy.get(tr.id) ?? -99) > t - (this.squad ? this.squad.p.retaliate_s : 4)
       let limit = engageR
+      if (this.squad && !(dir && dir.hunt)) limit = Math.min(limit, this.squad.p.nonhunter_engage_m)
       if (dir && dir.hunt) limit = Math.max(limit, A.fire_range_m.gun)
       if (attackedMe) limit = Math.max(limit, A.fire_range_m.gun)
       if (d > limit) continue
@@ -353,7 +388,7 @@ export class HouseAgent implements Agent {
         if (Math.abs(it.z - this.nav!.h[this.nav!.cell(it.x, it.y)]) > 1.5) continue // roof loot: skip
         const d = d2(x, y, it.x, it.y)
         if (d > 160) continue
-        if (d2(it.x, it.y, zone.next_center[0], zone.next_center[1]) > nextR * 0.95 && zoneUrgent) continue
+        if (!goalOk(it.x, it.y)) continue
         // want it if a slot is free, or it beats what we hold in slot 1
         let want = !slot1 || !slot0
         let dropSlot: number | undefined
@@ -385,7 +420,7 @@ export class HouseAgent implements Agent {
         let bd = 90
         for (const c of obs.cubes) {
           const d = d2(x, y, c.pos[0], c.pos[1])
-          if (d < bd && Math.abs(c.pos[2] - this.nav!.h[this.nav!.cell(c.pos[0], c.pos[1])]) < 1.5) {
+          if (d < bd && goalOk(c.pos[0], c.pos[1]) && Math.abs(c.pos[2] - this.nav!.h[this.nav!.cell(c.pos[0], c.pos[1])]) < 1.5) {
             bd = d
             bc = c.pos
           }
@@ -399,7 +434,7 @@ export class HouseAgent implements Agent {
       if (!goal && A.use_drops && hpFrac > 0.5) {
         for (const dr of obs.drops) {
           const d = d2(x, y, dr.pos[0], dr.pos[1])
-          if (d < 160 && dr.lands_in < 12) {
+          if (d < 160 && dr.lands_in < 12 && goalOk(dr.pos[0], dr.pos[1])) {
             this.mode = "drop"
             goal = [dr.pos[0], dr.pos[1]]
             break
@@ -412,6 +447,7 @@ export class HouseAgent implements Agent {
         let bd = 130
         for (const c of this.crates.values()) {
           if (Math.abs(c.z - this.nav!.h[this.nav!.cell(c.x, c.y)]) > 1.5) continue
+          if (!goalOk(c.x, c.y)) continue
           const d = d2(x, y, c.x, c.y)
           if (d < bd) {
             bd = d
@@ -481,7 +517,23 @@ export class HouseAgent implements Agent {
       this.lastY = y
       this.lastProgT = t
     }
-    if (t < this.unstickUntil) {
+    if (this.climbState > 0 && (!goal || t - this.climbT > 25)) this.climbState = 0
+    if (this.climbState === 1) {
+      // charge energy at the wall, then commit to one jump + jet over it
+      act.boost = false
+      if (s.grounded) mv = [mv[0] * 0.2, mv[1] * 0.2]
+      if (s.grounded && s.energy >= s.max_energy * 0.95) {
+        this.climbState = 2
+        act.jump = true
+        act.boost = true
+      }
+    } else if (this.climbState === 2) {
+      if (s.grounded && s.energy < 25) this.climbState = 1
+      else {
+        if (s.grounded) act.jump = true
+        act.boost = s.energy > 1
+      }
+    } else if (t < this.unstickUntil) {
       act.jump = s.grounded
       act.boost = true
       const side = this.strafeDir
@@ -528,16 +580,41 @@ export class HouseAgent implements Agent {
     const nav = this.nav!
     const dg = d2(x, y, goal[0], goal[1])
     if (dg < 2) return [0, 0]
+    // goal in another walkable component (e.g. the stadium bowl, a roof): walk to the closest
+    // reachable cell, then jet over the obstacle toward the goal
+    const sk = nav.nearest(x, y, 4)
+    const gk = nav.nearest(goal[0], goal[1], 12)
+    let tgt = goal
+    if (sk >= 0 && gk >= 0 && nav.comp[sk] !== nav.comp[gk]) {
+      if (!this.bridgeGoal || d2(this.bridgeGoal[0], this.bridgeGoal[1], goal[0], goal[1]) > 15) {
+        const k = nav.closestInComp(goal[0], goal[1], nav.comp[sk])
+        this.bridgeGoal = [goal[0], goal[1]]
+        this.bridgePt = k >= 0 ? [nav.cx(k), nav.cy(k)] : null
+      }
+      if (this.bridgePt) {
+        if (this.climbState === 0 && d2(x, y, this.bridgePt[0], this.bridgePt[1]) < 9) {
+          this.climbState = 1
+          this.climbT = t
+          this.path = []
+        }
+        if (this.climbState > 0) return [(goal[0] - x) / dg, (goal[1] - y) / dg]
+        tgt = this.bridgePt
+      }
+    } else if (this.climbState > 0 && this.me && this.me.grounded) this.climbState = 0
+    if (this.climbState > 0) return [(goal[0] - x) / dg, (goal[1] - y) / dg]
+    const dt2 = d2(x, y, tgt[0], tgt[1])
+    if (dt2 < 2) return [0, 0]
     // direct if walkable line
-    if (dg < 25 || nav.lineWalkable(x, y, goal[0], goal[1])) {
+    if (dt2 < 25 || nav.lineWalkable(x, y, tgt[0], tgt[1])) {
       this.path = []
-      return [(goal[0] - x) / dg, (goal[1] - y) / dg]
+      return [(tgt[0] - x) / dt2, (tgt[1] - y) / dt2]
     }
-    const replan = !this.pathGoal || d2(this.pathGoal[0], this.pathGoal[1], goal[0], goal[1]) > 10 || t - this.pathT > 4 || this.path.length === 0
+    const goalMoved = !this.pathGoal || d2(this.pathGoal[0], this.pathGoal[1], tgt[0], tgt[1]) > 10
+    const replan = (goalMoved && t - this.pathT > 0.5) || t - this.pathT > 4 || (this.path.length === 0 && t - this.pathT > 1.5)
     if (replan) {
-      const p = nav.path(x, y, goal[0], goal[1], 25000)
+      const p = nav.path(x, y, tgt[0], tgt[1], 12000)
       this.path = p ?? []
-      this.pathGoal = [goal[0], goal[1]]
+      this.pathGoal = [tgt[0], tgt[1]]
       this.pathT = t
     }
     while (this.path.length >= 4 && d2(x, y, this.path[0], this.path[1]) < 3.5) this.path.splice(0, 2)
@@ -549,7 +626,7 @@ export class HouseAgent implements Agent {
       if (dw < 1.5 && this.path.length === 2) return [0, 0]
       return [(wx - x) / Math.max(dw, 1e-6), (wy - y) / Math.max(dw, 1e-6)]
     }
-    return [(goal[0] - x) / dg, (goal[1] - y) / dg]
+    return [(tgt[0] - x) / dt2, (tgt[1] - y) / dt2]
   }
 
   private combat(obs: Observation, tr: Track, act: BotAction, mv: [number, number]) {

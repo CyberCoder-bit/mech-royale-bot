@@ -8,7 +8,7 @@ import { loadWorld } from "./world.ts"
 import { Match, type Mech } from "./match.ts"
 import { ProcAgent, InprocAgent, type Agent } from "./agents.ts"
 import { Rng, hashSeed } from "./rng.ts"
-import { HouseAgent, SquadController, type SquadParams, loadArchetypes } from "./house.ts"
+import { HouseAgent, SquadController, type SquadParams, type HouseTuning, loadArchetypes } from "./house.ts"
 
 export type AgentSpec = { type: "proc"; cmd: string } | { type: "inproc"; path: string; profile?: string } | { type: "house"; arch: string }
 
@@ -19,6 +19,7 @@ export interface MatchSpec {
   field: AgentSpec[]
   replay?: string | null
   squad?: Partial<SquadParams>
+  house?: Partial<HouseTuning>
   budgetMs?: number
   stderrDir?: string | null
   /** fixed slot for the test bot (default: random per seed) */
@@ -63,10 +64,10 @@ export function specName(s: AgentSpec): string {
   return `house:${s.arch}`
 }
 
-function mkAgent(s: AgentSpec, stderrPath: string | null, squad: SquadController | null, team: number): Agent {
+function mkAgent(s: AgentSpec, stderrPath: string | null, squad: SquadController | null, team: number, tune: Partial<HouseTuning>): Agent {
   if (s.type === "proc") return new ProcAgent(s.cmd, undefined, stderrPath)
   if (s.type === "inproc") return new InprocAgent(s.path, s.profile)
-  return new HouseAgent(s.arch, squad, team)
+  return new HouseAgent(s.arch, squad, team, tune)
 }
 
 const pct = (a: number[], p: number) => (a.length ? a[Math.min(a.length - 1, Math.floor(p * a.length))] : 0)
@@ -88,7 +89,7 @@ export async function runMatch(spec: MatchSpec): Promise<MatchResult> {
   const squad = spec.mode === "squad" ? new SquadController(testSlot, spec.squad ?? {}) : null
   const archetypes = loadArchetypes()
   void archetypes
-  const agents = specs.map((s, i) => mkAgent(s, spec.stderrDir && s.type === "proc" ? `${spec.stderrDir}/seed${spec.seed}_slot${i}.log` : null, squad, teams[i]))
+  const agents = specs.map((s, i) => mkAgent(s, spec.stderrDir && s.type === "proc" ? `${spec.stderrDir}/seed${spec.seed}_slot${i}.log` : null, squad, teams[i], spec.house ?? {}))
   const match = new Match({ seed: spec.seed, config: cfg, world, names: specs.map(specName), teams, sharedVision: spec.mode === "squad", record: !!spec.replay })
   // hellos
   const ok = await Promise.all(
@@ -122,15 +123,16 @@ export async function runMatch(spec: MatchSpec): Promise<MatchResult> {
     const obsMap = new Map<number, any>()
     for (const m of alive) obsMap.set(m.id, match.observe(m))
     match.clearEvents()
-    // subprocess bots first: send, then compute in-process bots while they think
-    for (const m of alive) {
-      const a = agents[m.id]
-      if (a.kind === "proc" && !(a as ProcAgent).exited && ok[m.id]) (a as ProcAgent).send(obsMap.get(m.id))
-    }
+    // in-process bots first (lockstep: every obs was built before any action applies), then subprocess
+    // bots: send and wait on a free event loop so their answer time is measured like the real server does
     const acts = new Map<number, { a: BotAction | null; valid: boolean }>()
     for (const m of alive) {
       const a = agents[m.id]
       if (a.kind !== "proc") acts.set(m.id, { a: ok[m.id] ? a.act!(obsMap.get(m.id)) : null, valid: ok[m.id] })
+    }
+    for (const m of alive) {
+      const a = agents[m.id]
+      if (a.kind === "proc" && !(a as ProcAgent).exited && ok[m.id]) (a as ProcAgent).send(obsMap.get(m.id))
     }
     for (const m of alive) {
       const a = agents[m.id]

@@ -9,6 +9,7 @@ export class NavGrid {
   minY: number
   walk: Uint8Array
   h: Float32Array
+  comp: Int32Array
   // A* scratch
   private g: Float32Array
   private came: Int32Array
@@ -46,6 +47,32 @@ export class NavGrid {
         if (sup <= gr + 0.01 && w.slope(x, y) > 1.0) continue
         this.walk[k] = 1
       }
+    // connected components (4-neighbour, |dh| <= 1.3)
+    this.comp = new Int32Array(N).fill(-1)
+    let nc = 0
+    const q: number[] = []
+    for (let s0 = 0; s0 < N; s0++) {
+      if (!this.walk[s0] || this.comp[s0] >= 0) continue
+      q.length = 0
+      q.push(s0)
+      this.comp[s0] = nc
+      while (q.length) {
+        const k = q.pop()!
+        const i = k % this.nx,
+          j = Math.floor(k / this.nx)
+        for (let d = 0; d < 4; d++) {
+          const ii = i + (d === 0 ? 1 : d === 1 ? -1 : 0),
+            jj = j + (d === 2 ? 1 : d === 3 ? -1 : 0)
+          if (ii < 0 || jj < 0 || ii >= this.nx || jj >= this.ny) continue
+          const n = jj * this.nx + ii
+          if (!this.walk[n] || this.comp[n] >= 0) continue
+          if (Math.abs(this.h[n] - this.h[k]) > 1.3) continue
+          this.comp[n] = nc
+          q.push(n)
+        }
+      }
+      nc++
+    }
     this.g = new Float32Array(N)
     this.came = new Int32Array(N)
     this.stamp = new Int32Array(N)
@@ -91,6 +118,34 @@ export class NavGrid {
           if (i < 0 || j < 0 || i >= this.nx || j >= this.ny) continue
           const k = j * this.nx + i
           if (!this.walk[k]) continue
+          const dd = di * di + dj * dj
+          if (dd < bd) {
+            bd = dd
+            best = k
+          }
+        }
+      if (best >= 0) return best
+    }
+    return -1
+  }
+
+  /** nearest cell to (x,y) that belongs to component c (ring search), or -1 */
+  closestInComp(x: number, y: number, c: number, maxR = 80): number {
+    const k0 = this.cell(x, y)
+    if (this.walk[k0] && this.comp[k0] === c) return k0
+    const i0 = k0 % this.nx,
+      j0 = Math.floor(k0 / this.nx)
+    for (let d = 1; d <= maxR; d++) {
+      let best = -1,
+        bd = Infinity
+      for (let dj = -d; dj <= d; dj++)
+        for (let di = -d; di <= d; di++) {
+          if (Math.abs(di) !== d && Math.abs(dj) !== d) continue
+          const i = i0 + di,
+            j = j0 + dj
+          if (i < 0 || j < 0 || i >= this.nx || j >= this.ny) continue
+          const k = j * this.nx + i
+          if (!this.walk[k] || this.comp[k] !== c) continue
           const dd = di * di + dj * dj
           if (dd < bd) {
             bd = dd
