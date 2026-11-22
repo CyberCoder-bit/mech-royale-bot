@@ -106,7 +106,7 @@ export interface SquadParams {
   hunters_per_kill: number
 }
 /** calibrated against the official practice scores (see sim/README.md) */
-export const DEFAULT_SQUAD: SquadParams = { t_all: 330, hunters_know_position: true, first_hunter_t: 0, base_hunters: 1, escalate_every_s: 0, nonhunter_engage_m: 0, retaliate_s: 0, hunters_per_kill: 1 }
+export const DEFAULT_SQUAD: SquadParams = { t_all: 330, hunters_know_position: true, first_hunter_t: 0, base_hunters: 1, escalate_every_s: 0, nonhunter_engage_m: 0, retaliate_s: 0, hunters_per_kill: 0.5 }
 
 export class SquadController {
   testId: number
