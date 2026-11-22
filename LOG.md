@@ -19,3 +19,4 @@
 | 23:30 | sim: v2 death analysis | mean death 80 s, none past 3:00; killed by easy 30/48; 3.6 kills/min alive | → lever = survival per kill | – | – |
 | 23:31 | core world perf d1e337f | allocation-free LOS, nav.bin.gz precompute, A* cap 8000, warm-up | v2+new world 4.60 vs 4.44 (+0.17 ± 0.16) | – | not submitted (folded into next sq candidate) |
 | 23:38 | sim recalibration (branch sim-cal-v1, ef6cc5f) | search-model hunters (config B) | ex 1.29, pac 0.00, v0 3.40, v1 3.79, sq 4.92 vs official 1.15/0.08/3.38/3.00/4.63 | – | lesson: sim over-rates defensive tactics by ~0.5–0.8; not adopted as default |
+| 23:40 | ffa d42bbc4 (FFA brain on v0) | hide in low-exposure spots, cover vs threat lines, heal in cover, fight only with an edge, zone safety net, final duel | squad identical (0.00) | ffa 11.92 vs 10.56 (+1.35 ± 0.37, 96 seeds), top-3 72% vs 49%, win 40% vs 29% | not submitted (porting onto v2) |
