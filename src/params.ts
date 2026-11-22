@@ -84,7 +84,7 @@ export const P = {
   /** Spin the torso this long at the start (s) to see loot all around. */
   openScanS: 2,
   /** Aim at the gun's lead point while lightning fires or a laser charges (switch to the laser aim this long before full charge). */
-  gunDuringCharge: false,
+  gunDuringCharge: true,
   /** Lead airborne targets with gravity (jetting ones at constant rise), floor at the surface below them. */
   gravityLead: false,
   /** Boost on hunting/looting trips longer than travelBoostD m while energy is above travelBoostE (0 = off). */
