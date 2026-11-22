@@ -143,8 +143,10 @@ fire 0.56-0.77 gun shots/s with an enemy within 30-100 m, and ours fired about 1
 of roam decisions and fights from where it stands), little boosting, gun+laser first. The default `ffa` field is
 `house:top*12,house:expert*3`.
 
-The kit Python example run as a subprocess is the cross-check of the in-process twin: see the report or
-`runs/cal_python_example.json`.
+Cross-check through the real protocol path: the kit Python example as a subprocess
+(`--bot "python3 -u kit/python/example_bot.py"`, 48 seeds) scores **1.19 ± 0.19**, against 1.15 ± 0.20 for its
+in-process twin and 1.15 official. The machine was saturated during that run (5.7% late answers, p99 368 ms), so
+the calibration holds even with some coasting.
 
 ## Performance
 
