@@ -1,0 +1,10 @@
+# local artifacts
+runs/
+sim/out/
+node_modules/
+*.log
+.DS_Store
+# downloads and unrelated tool files
+*:Zone.Identifier
+mechfight-kit.tar.gz
+recipes.json

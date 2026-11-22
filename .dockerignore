@@ -1,0 +1,4 @@
+# Whitelist: the image only needs the bot source (and optional precomputed data).
+*
+!src/
+!data/
