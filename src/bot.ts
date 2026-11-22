@@ -159,6 +159,10 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   const pickMem = new Map<number, { kind: WeaponKind; pos: V3; t: number }>()
   let soundPt: { x: number; y: number; t: number } | null = null
   let mode = "idle"
+  // loot give-up: goals (cubes / weapons) we failed to approach, banned for a while (key = rounded x,y)
+  const lootBan = new Map<string, number>()
+  let lootProg: { key: string; d: number; t: number } | null = null
+  const lkey = (p: ArrayLike<number>) => `${Math.round(p[0])},${Math.round(p[1])}`
 
   const pickUpgrade = (choices: OfferChoice[]) => {
     let best = 0, bestRank = 1e9
@@ -640,6 +644,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           let best = PRM.lootCubeRange
           for (const c of obs.cubes ?? []) {
             const d = dist2(P, c.pos)
+            if (PRM.lootGiveUpS > 0 && (lootBan.get(lkey(c.pos)) ?? -1) > t) continue
             if (d < best && safeHere(c.pos) && Math.abs(c.pos[2] - P[2]) < 25) (best = d), (goal = [c.pos[0], c.pos[1]]), (goalDist = d), (goalZ = c.pos[2]), (mode = "cube")
           }
           const wantWeapon = !me.weapons[1] || (me.weapons[1] && WEAPON_PREF.indexOf(me.weapons[1].kind) > 0)
@@ -650,6 +655,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
             const src: { kind: WeaponKind; pos: ArrayLike<number> }[] = PRM.lootMemRange > 0 ? [...pickMem.values()] : (obs.pickups ?? [])
             for (const p of src) {
               if (p.kind === "gun" || slotOf(p.kind) >= 0) continue
+              if (PRM.lootGiveUpS > 0 && (lootBan.get(lkey(p.pos)) ?? -1) > t) continue
               const cur = me.weapons[1]?.kind
               if (cur && WEAPON_PREF.indexOf(p.kind) >= WEAPON_PREF.indexOf(cur)) continue
               const d = dist2(P, p.pos) + (WEAPON_PREF.indexOf(p.kind) > 0 && noSlot1 ? 0 : 0)
@@ -723,6 +729,15 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           move = norm2([side[0] * 0.5 + back[0] * (drop.d / drop.r), side[1] * 0.5 + back[1] * (drop.d / drop.r)])
           move = [move[0] * 0.5, move[1] * 0.5]
           goal = null
+        }
+        // give up a cube/weapon we can't get closer to (failed roof climbs, blocked approach)
+        if (PRM.lootGiveUpS > 0 && goal && (mode === "loot" || mode === "cube")) {
+          const k = lkey(goal)
+          if (!lootProg || lootProg.key !== k || goalDist < lootProg.d - 2) lootProg = { key: k, d: goalDist, t }
+          else if (t - lootProg.t > PRM.lootGiveUpS) {
+            lootBan.set(k, t + 60)
+            lootProg = null
+          }
         }
         if (goal) {
           const m = goalDist > 8 ? goPath(goal[0], goal[1], goalZ, mode === "hunt" ? 8 : 2.5) : null

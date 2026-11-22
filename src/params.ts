@@ -101,6 +101,8 @@ export const P = {
   laserSwitchS: 0.12,
   /** Fight: walk over visible cubes within this range (m) while fighting (0 = off). */
   cubeGrab: 30,
+  /** Give up a cube/weapon goal after this many seconds without getting 2 m closer (ban it 60 s); 0 = off. */
+  lootGiveUpS: 0,
   /** Idle (not hunting): wait at the lowest-exposure spot within this radius (m; 0 = off), re-chosen every holdRefresh s. */
   holdR: 0,
   holdRefresh: 20,
