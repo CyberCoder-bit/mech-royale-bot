@@ -53,7 +53,8 @@ export interface HouseTuning {
   /** multiplies retreat_hp_frac (0 = never retreat; the replay shows no HP-triggered retreat) */
   retreat_mul: number
 }
-export const DEFAULT_TUNING: HouseTuning = { aim_mul: 1, react_mul: 1, lead_mul: 1, hop_rate: 0, fire_duty: 1, retreat_mul: 1 }
+/** fire_duty 0.45: real house bots fire ~0.5-0.8 gun shots/s with an enemy inside 150 m (replay), ours 1.5/s at duty 1 */
+export const DEFAULT_TUNING: HouseTuning = { aim_mul: 1, react_mul: 1, lead_mul: 1, hop_rate: 0, fire_duty: 0.45, retreat_mul: 1 }
 
 /** sim-only behaviour knobs per archetype (archetypes.json values win when present) */
 const SIM_EXTRAS: Record<string, Partial<Archetype>> = {
@@ -97,8 +98,11 @@ export interface SquadParams {
   nonhunter_engage_m: number
   /** seconds a non-hunter keeps fighting back after the test bot damaged it */
   retaliate_s: number
+  /** hunters added per test-bot kill (k = base + floor(kills * hunters_per_kill)) */
+  hunters_per_kill: number
 }
-export const DEFAULT_SQUAD: SquadParams = { t_all: 330, hunters_know_position: true, first_hunter_t: 0, base_hunters: 1, escalate_every_s: 0, nonhunter_engage_m: 60, retaliate_s: 6 }
+/** calibrated against the official practice scores (see sim/README.md) */
+export const DEFAULT_SQUAD: SquadParams = { t_all: 330, hunters_know_position: true, first_hunter_t: 0, base_hunters: 1, escalate_every_s: 0, nonhunter_engage_m: 0, retaliate_s: 0, hunters_per_kill: 1 }
 
 export class SquadController {
   testId: number
@@ -123,7 +127,7 @@ export class SquadController {
     const test = m.mechs[this.testId]
     const squad = m.mechs.filter((x) => x.alive && x.id !== this.testId)
     squad.sort((a, b) => (this.tiers.get(a.id) ?? 9) - (this.tiers.get(b.id) ?? 9) || a.id - b.id)
-    let k = Math.min(squad.length, this.p.base_hunters + test.stats.kills)
+    let k = Math.min(squad.length, this.p.base_hunters + Math.floor(test.stats.kills * this.p.hunters_per_kill + 1e-9))
     if (this.p.escalate_every_s > 0) k = Math.min(squad.length, k + Math.floor(m.t / this.p.escalate_every_s))
     if (m.t >= this.p.t_all) k = squad.length
     if (m.t < this.p.first_hunter_t) k = 0

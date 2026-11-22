@@ -106,4 +106,34 @@ PERF_PLACEHOLDER
 
 ## Fidelity gaps (known)
 
-GAPS_PLACEHOLDER
+- **House-bot AI is an imitation.** Archetype numbers come from one public replay on an older ruleset, and the squad
+  logic (who hunts, who fights back) is fitted to three aggregate practice scores, not observed. Treat `squad` numbers
+  as a ranking signal for bot versions, not as a predicted practice score, and confirm big decisions with `ffa` too.
+- **Non-hunters are passive in the default squad model** (`nonhunter_engage_m=0, retaliate_s=0`): they never shoot
+  the test bot unless they are hunting. That is what reproduced the kit example's 1.15. A bot that farms passive
+  squad members looks better here than it may be in reality. `--squad "nonhunter_engage_m=60,retaliate_s=6"` is the
+  pessimistic variant, worth checking before relying on "attack everything" behavior.
+- Movement: roof-edge landing and slide-off are simplified (8-direction probe). The eave slide-out rule (0.6 m/tick
+  out from under an overhang) is only applied at roof edges. "A step up under an overhang that would put your head
+  into it" is not checked. Mech-vs-mech overlap is resolved after movement with a simple push-apart.
+- Mortar splash distance is measured to the nearest point of the target cylinder (the server's metric is unknown).
+  Splash is blocked when neither the mid nor the upper body of the target has LOS from the blast point.
+- Lightning cone: |yaw offset| <= cone_deg / 2 is assumed (the replay's max observed offset is 6.7 deg, so either
+  reading fits). Chains go to the nearest unhit target within chain_range with LOS.
+- Gun spread is Gaussian with SD = spread_deg on yaw and pitch independently (an assumed reading of "spread").
+- Crates don't block movement or sight. NPC drones walk on the ground, wander within the leash, aggro on attackers or
+  on mechs within aggro_range with LOS while near home, chase up to chase_leash, and shoot without lead.
+- Spawns: open ground inside spawn_zone_fraction x start radius, separation relaxed 10% per 300 failed tries.
+  Next zone centers are uniform in the allowed disc and kept 40 m inside the map bounds. Drops land on open ground
+  within spread x next radius of the next center. All of these are guesses at the server's sampling.
+- Vision distance is 3D. Canopy crowns are ellipsoids (Beer-Lambert; fits the stream), trunks reach mid-crown.
+- Sounds: bearing noise scaled to the measured ~9.5 deg SD. Jets make a `jet` sound every step_every. Reload sounds
+  at reload start. Ages are 0.05 / 0.1 s like the stream.
+- Regen: damage dealt to NPCs and crates also resets your regen timer (a guess). Plating heals the max-HP gain.
+- Upgrade offers draw 3 uniformly random eligible upgrades. Offer ids count up per match.
+- Timing: each decision computes in-process bots first, then sends observations to subprocess bots and waits on a
+  free event loop. A subprocess bot's answer time is its own compute plus pipe latency, like on the server. The
+  machine is shared, though: under heavy load (load average > cores) late answers show up that a quiet machine
+  doesn't have. Use `--budget-ms` to relax the deadline for behavior-only runs.
+- In-process bots run in one process per match. Module-level state in a bot leaks between instances: keep all state
+  in the makeBot instance (src/bot.ts already says so).

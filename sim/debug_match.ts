@@ -21,8 +21,12 @@ squad.attach(m)
 const agents: any[] = names.map((n, i) => (i === 0 ? new InprocAgent("src/bot.ts") : new HouseAgent(n.slice(6), mode === "squad" ? squad : null, teams[i])))
 for (let i = 0; i < names.length; i++) {
   await agents[i].init({ type: "hello", protocol: "mechfight/1", slot: i, seed: hashSeed(seed, i), map: { dir: MAP_DIR, files: [] }, config: cfg })
-  if (agents[i] instanceof HouseAgent) agents[i].attach(m, m.mechs[i])
+  if (agents[i] instanceof HouseAgent) {
+    agents[i].attach(m, m.mechs[i])
+    m.mechs[i].lite = true
+  }
 }
+let tVis = 0, tPer = 0
 console.log(`setup ${(performance.now() - t0).toFixed(0)} ms`)
 let nextPrint = 0
 let maxAct = 0, slowActs = 0
@@ -33,7 +37,11 @@ let tAct = 0,
 while (!m.over) {
   const a0 = performance.now()
   m.updateVision()
+  const b1 = performance.now()
   m.distributePerception()
+  const b2 = performance.now()
+  tVis += b1 - a0
+  tPer += b2 - b1
   squad.update()
   const alive = m.mechs.filter((x) => x.alive)
   const obs = alive.map((x) => m.observe(x))
@@ -67,5 +75,5 @@ while (!m.over) {
   }
 }
 console.log(`max act ${maxAct.toFixed(1)} ms, acts > 5 ms: ${slowActs}`)
-console.log(`end t=${m.t.toFixed(1)} wall ${(performance.now() - t0).toFixed(0)} ms  (obs ${tObs.toFixed(0)} act ${tAct.toFixed(0)} sim ${tSim.toFixed(0)})`)
+console.log(`end t=${m.t.toFixed(1)} wall ${(performance.now() - t0).toFixed(0)} ms  (obs ${tObs.toFixed(0)} [vision ${tVis.toFixed(0)} perception ${tPer.toFixed(0)}] act ${tAct.toFixed(0)} sim ${tSim.toFixed(0)})`)
 for (const x of m.mechs) console.log(`  ${x.id} ${x.name} place ${x.place} death ${x.deathT?.toFixed(1)} by ${x.killedBy} with ${x.killedWith} zoneS ${x.stats.zoneSeconds.toFixed(1)} stuck ${x.stats.stuckSeconds.toFixed(1)}`)
