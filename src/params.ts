@@ -118,7 +118,7 @@ export const P = {
   planExpand: 1500,
   planCapMs: 12,
   /** Duck: an enemy charging a laser at us with a clear line -> move to the nearest cover within this radius (m); 0 = off. */
-  duckR: 0,
+  duckR: 10,
   /** Reveal: shot by an attacker we can't see within this many seconds -> face it and advance to see it (0 = off). */
   revealS: 3,
   /** Reveal: assumed attacker distance (m) when we never saw it; stop advancing this close to the estimate. */
