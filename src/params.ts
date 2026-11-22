@@ -83,6 +83,10 @@ export const P = {
   openScanS: 2,
   /** Fight: walk over visible cubes within this range (m) while fighting (0 = off). */
   cubeGrab: 0,
+  /** Idle (not hunting): wait at the lowest-exposure spot within this radius (m; 0 = off), re-chosen every holdRefresh s. */
+  holdR: 0,
+  holdRefresh: 20,
+  holdDistCost: 0.004,
   /** Mortar dodge: run out of the predicted splash of visible incoming shells (radius + margin m). */
   dodgeMortar: true,
   dodgeMargin: 4,

@@ -11,6 +11,7 @@ import { aimAt, ballisticPitch, leadPoint } from "./brain/aim.ts"
 import { angDiff, clamp, dist2, dist3, rng, unit, yawTo, type V2, type V3 } from "./util/math.ts"
 import { P as PRM, type Profile } from "./params.ts"
 import { loadWorld, navFor, PathFollower, type World } from "./world/index.ts"
+import { bestSpots, loadExposure } from "./expo/exposure.ts"
 
 const WEAPON_PREF: WeaponKind[] = PRM.weaponPref
 const UPGRADE_PREF = PRM.upgradePref
@@ -109,6 +110,13 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
     }
   }
   if (PRM.useWorld && !follow) log(`map model limited (world ${!!world}, nav ${!!follow}) at ${upMs().toFixed(0)} ms`)
+  if (PRM.holdR > 0 && (!fresh || upMs() < PRM.initSkipMs)) {
+    try {
+      loadExposure(undefined, fresh)
+    } catch (e) {
+      log("exposure load failed", e)
+    }
+  }
 
   // ---- per-instance state
   let kills = 0
@@ -130,6 +138,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   let curTarget: number | null = null
   let lastAttackerId: number | null = null
   let ffaEvidence = 0
+  let holdSpot: V3 | null = null
+  let holdUntil = -1
   let duckPt: V2 | null = null
   let duckUntil = -1
   const pickMem = new Map<number, { kind: WeaponKind; pos: V3; t: number }>()
@@ -631,9 +641,9 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         if (reveal && (!needZone || dist2(reveal, nc) < nr)) {
           const d = dist2(P, reveal)
           mode = "reveal"
-          goal = d > PRM.revealStop ? [reveal[0], reveal[1]] : null
-          goalDist = d
-          goalZ = reveal[2]
+          if (sq) goal = d > PRM.revealStop ? [reveal[0], reveal[1]] : null // FFA: keep our course, just face it
+          if (sq) goalDist = d
+          if (sq) goalZ = reveal[2]
           const ca = aimAt(muzzle, [reveal[0], reveal[1], reveal[2] + 4.5])
           desired = ca
           if (PRM.revealFire && gunW && gunS >= 0 && gunW.reload === 0 && (gunW.ammo ?? 0) > 0 && t - lastHurtT < 1.5 && d < 110) {
@@ -641,6 +651,26 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           }
         }
         if (healing && !needZone && mode === "idle") mode = "heal"
+        // nothing to do (not hunting: hurt or late): wait at a low-exposure spot nearby
+        if (mode === "idle" && PRM.holdR > 0 && profile === "fighter" && !goal) {
+          if (!holdSpot || t > holdUntil || (nr > 1 && dist2(holdSpot, nc) > nr - 5)) {
+            const avoid: V3[] = []
+            for (const tr of tracks.values()) if (t - tr.lastListed < 20) avoid.push(tr.pos)
+            const spots = bestSpots(P, PRM.holdR, 1, {
+              avoid, avoidRadius: 35,
+              penalty: (x, y) => Math.hypot(x - P[0], y - P[1]) * PRM.holdDistCost + (nr > 1 && Math.hypot(x - nc[0], y - nc[1]) > nr - margin ? 10 : 0),
+            })
+            holdSpot = spots.length ? [spots[0].x, spots[0].y, spots[0].z] : [P[0], P[1], P[2]]
+            holdUntil = t + PRM.holdRefresh
+          }
+          const dh = dist2(P, holdSpot)
+          if (dh > 2.5) {
+            goal = [holdSpot[0], holdSpot[1]]
+            goalDist = dh
+            goalZ = holdSpot[2]
+            mode = "hold"
+          }
+        }
         if (mode === "drop" && drop && drop.d < drop.r - 2.5) {
           // inside the ring: small circles near the middle
           const back = unit(yawTo(P, drop.pos))
