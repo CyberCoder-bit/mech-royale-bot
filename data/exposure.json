@@ -1,0 +1,136 @@
+{
+ "format": "mech-exposure/1",
+ "generated": "2026-11-22T02:12:02.687Z",
+ "cell": 4,
+ "x0": -516,
+ "y0": -336,
+ "nx": 268,
+ "ny": 182,
+ "bytes": 731640,
+ "noneZ": -32768,
+ "planes": [
+  {
+   "name": "groundZ",
+   "type": "i16",
+   "offset": 0
+  },
+  {
+   "name": "roofZ",
+   "type": "i16",
+   "offset": 97552
+  },
+  {
+   "name": "flags",
+   "type": "u8",
+   "offset": 195104
+  },
+  {
+   "name": "coverG",
+   "type": "u8",
+   "offset": 243880
+  },
+  {
+   "name": "coverR",
+   "type": "u8",
+   "offset": 292656
+  },
+  {
+   "name": "gExp",
+   "type": "u8",
+   "offset": 341432
+  },
+  {
+   "name": "gNear",
+   "type": "u8",
+   "offset": 390208
+  },
+  {
+   "name": "gExpGV",
+   "type": "u8",
+   "offset": 438984
+  },
+  {
+   "name": "gNearGV",
+   "type": "u8",
+   "offset": 487760
+  },
+  {
+   "name": "rExp",
+   "type": "u8",
+   "offset": 536536
+  },
+  {
+   "name": "rNear",
+   "type": "u8",
+   "offset": 585312
+  },
+  {
+   "name": "rExpGV",
+   "type": "u8",
+   "offset": 634088
+  },
+  {
+   "name": "rNearGV",
+   "type": "u8",
+   "offset": 682864
+  }
+ ],
+ "flags": {
+  "ground": 1,
+  "walkable": 2,
+  "roof": 4,
+  "coverGround": 8,
+  "coverRoof": 16,
+  "deck": 32,
+  "overhead": 64,
+  "pocket": 128
+ },
+ "flagNotes": "walkable = ground layer, slope <= 50° and a 5 m wide body fits; pocket = walkable cell in a component of < 30 cells (cut off by walls or cliffs, reach with jets)",
+ "cover": "bit k: wall (solid spanning surface+1..surface+6 m, or terrain >= surface+6) within 6 m in the 45° sector centred on yaw k*45°",
+ "model": {
+  "rings": [
+   15,
+   30,
+   44,
+   80,
+   130,
+   190
+  ],
+  "nearRings": 3,
+  "dirs": 64,
+  "viewerRes": 2,
+  "viewer": "mech on walkable ground (slope <= 50°) or a reachable roof (<= 58 m up), eye at surface + 8",
+  "target": "LOS to surface+4.5 or surface+9",
+  "near": "rings <= 44 m: terrain and prisms block, trees do not",
+  "far": "terrain, prisms and trunks block; crowns (ellipsoids) block when exp(-canopyDensity * chord) < canopyBlockT",
+  "canopyDensity": 0.35,
+  "canopyBlockT": 0.25,
+  "planes": "gExp/rExp: all viewers, all rings; gNear/rNear: rings <= 44 m; *GV: only viewers standing on the ground count as seeing (same denominator, so *GV <= the plain plane). 0..255 = fraction of valid viewpoints that see the target"
+ },
+ "stats": {
+  "rows": [
+   0,
+   182
+  ],
+  "computeSeconds": 12.4,
+  "workers": 23,
+  "groundCells": 37597,
+  "walkableCells": 37128,
+  "roofCells": 9962,
+  "coverGroundCells": 5357,
+  "coverRoofCells": 1118,
+  "pocketCells": 124,
+  "groundExpHistogram": [
+   18,
+   126,
+   885,
+   2382,
+   3840,
+   8460,
+   9590,
+   7212,
+   3791,
+   1293
+  ]
+ }
+}
