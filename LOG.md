@@ -68,3 +68,4 @@
 | 04:05 | screen C2 bbc3b8d | bd23fa7 + passiveRangeG 20, lootWeaponRange 130, approachS 0 | 960 seeds: default +0.26 ± 0.06, aim0.6 +0.21 ± 0.06 (more kills, not dodging) | ffa +0.16 ± 0.31 | next real test |
 | 04:06 | laserprio e7a4661 | official | C4 +0.22, default −0.09 | – | **4.93** (noise band; C4 also misses) |
 | 04:06 | screen C2 bbc3b8d | submitted | – | – | pending |
+| 04:10 | roof A 7d9795c / B 8e4d23b (on d65b7cf) | refuge (<50% HP heal on a roof ≤110 m) / + idle on roof | 48 seeds +0.23 ± 0.24 / +0.25 ± 0.30 (noise) | squad-gated | queued after C2 |
