@@ -179,6 +179,15 @@ export const P = {
   lastStandHp: 0,
   /** Hunt: distance penalty (m) for remembered mechs that have shot at us (prefer passive ones; 0 = off). */
   huntAtkPen: 0,
+  /**
+   * Early safety posture (0 = off): before this match time, and while no FFA is detected, don't close
+   * in on non-attacking mechs (no chase, no approach, no hunting); attackers are still fought, loot and
+   * zone logic are unchanged. With earlySafeFinish, passive mechs are engaged only when already
+   * damaged (below finishHp). 15 s, 192 paired sim seeds vs v3 (0 = v3): squad -0.03 +- 0.18,
+   * HK0 -0.29 +- 0.16, FFA +1.07 +- 0.35 (deaths before the FFA takeover 13 -> 7-11 of 96).
+   */
+  earlySafeT: 15,
+  earlySafeFinish: true,
 }
 
 /**
