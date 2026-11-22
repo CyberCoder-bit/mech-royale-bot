@@ -17,6 +17,9 @@ const UPGRADE_PREF = PRM.upgradePref
 
 type Primary = "gun" | "laser" | "lightning" | "mortar"
 
+/** set once the map + nav were built in this process (they are cached: later instances get them instantly) */
+let mapBuiltOnce = false
+
 type Track = {
   id: number
   pos: V3
@@ -36,9 +39,11 @@ type Track = {
   listed: boolean
   /** clear shot line in the current observation */
   los: boolean
+  /** seconds it has spent walking straight at us (decays) */
+  appT: number
 }
 
-export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { dbg: { mode: string; target: number; los: boolean; listed: string; weapons: string } } {
+export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { dbg: { mode: string; target: number; los: boolean; listed: string; weapons: string; info: string } } {
   const cfg = hello.config
   const rand = rng(Number(hello.seed) || 1)
   const totalMechs = cfg.match?.mechs ?? 16
@@ -46,21 +51,64 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   const reach = cfg.loot.pickup_radius ?? 4
   const lightningCfg = cfg.weapons.lightning
   const jetDrain = Number((cfg.mech as Record<string, unknown>).jet_drain ?? 15)
+  const mortarG = Number((cfg.weapons.mortar as Record<string, unknown>)?.gravity ?? 22) || 22
+  const mortarSplash = Number((cfg.weapons.mortar as Record<string, unknown>)?.splash_radius ?? 7) || 7
 
   // ---- map model (optional: every use is guarded)
   let world: World | null = null
   let follow: PathFollower | null = null
-  if (PRM.useWorld) {
+  // cold-start guard: `ready` must reach the server within 20 s of hello, container start included.
+  // performance.now() counts from process start; on a very slow host skip the optional parts.
+  // (only the first instance in a process pays the build; later ones reuse the cached map, e.g. in the sim)
+  const upMs = () => performance.now()
+  const fresh = !mapBuiltOnce
+  if (PRM.useWorld && (!fresh || upMs() < PRM.initSkipMs)) {
     try {
       world = loadWorld(hello.map.dir, hello.map.files)
-      follow = new PathFollower(navFor(world))
-      follow.planMs = 4
+      if (!fresh || upMs() < PRM.initSkipMs) {
+        follow = new PathFollower(navFor(world))
+        follow.planMs = 3
+        mapBuiltOnce = true
+      }
     } catch (e) {
       log("world load failed", e)
       world = null
       follow = null
     }
   }
+  if (world && follow) {
+    try {
+      // deterministic A* budget (expansions, with a wall-time safety cap): reproducible sims, bounded ticks
+      if (PRM.planExpand > 0) {
+        const pf = follow.pf
+        const orig = pf.findPath.bind(pf)
+        pf.findPath = (sx, sy, sz, tx, ty, tz, opts = {}) => orig(sx, sy, sz, tx, ty, tz, { ...opts, maxMs: PRM.planCapMs, maxExpand: PRM.planExpand })
+      }
+      // JIT warm-up of the hot world paths (cold first calls cost tens of ms inside a match)
+      if (PRM.warmMs > 0 && fresh && upMs() < PRM.initSkipMs) {
+        const t0 = performance.now()
+        const W = world, nav = follow.nav
+        let sd = 12345
+        const r = () => (sd = (sd * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
+        let acc = 0
+        for (let i = 0; i < 4000 && performance.now() - t0 < PRM.warmMs * 0.5; i++) {
+          const x = -300 + r() * 600, y = -250 + r() * 500, a = r() * Math.PI * 2, d = 20 + r() * 180
+          const x1 = x + Math.cos(a) * d, y1 = y + Math.sin(a) * d
+          if (W.shotClear([x, y, W.groundZ(x, y) + 7], [x1, y1, W.groundZ(x1, y1) + 4.5])) acc++
+          if (nav.lineWalkable(x, y, W.groundZ(x, y), x + Math.cos(a) * 20, y + Math.sin(a) * 20, 30)) acc++
+          if (nav.nodeAt(x1, y1, W.groundZ(x1, y1)) >= 0) acc++
+        }
+        for (let i = 0; i < 10 && performance.now() - t0 < PRM.warmMs; i++) {
+          const x = -200 + r() * 400, y = -200 + r() * 400, x1 = x - 60 + r() * 120, y1 = y - 60 + r() * 120
+          acc += follow.pf.findPath(x, y, W.groundZ(x, y), x1, y1, W.groundZ(x1, y1), { maxMs: 4, weight: 1.25 }).expanded
+        }
+        if (acc < 0) log("warm-up: impossible")
+      }
+    } catch (e) {
+      log("nav setup failed", e)
+    }
+  }
+  if (PRM.useWorld && !follow) log(`map model limited (world ${!!world}, nav ${!!follow}) at ${upMs().toFixed(0)} ms`)
 
   // ---- per-instance state
   let kills = 0
@@ -81,6 +129,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   let laserNoTargetSince = -1
   let curTarget: number | null = null
   let lastAttackerId: number | null = null
+  let ffaEvidence = 0
   let duckPt: V2 | null = null
   let duckUntil = -1
   const pickMem = new Map<number, { kind: WeaponKind; pos: V3; t: number }>()
@@ -105,7 +154,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   const shotOk = (a: V3, b: V3) => !PRM.losGate || !world || world.shotClear(a, b)
 
   /** read-only debug view for local tools (not part of the protocol) */
-  const dbg = { mode: "", target: -1, los: false, listed: "", weapons: "" }
+  const dbg = { mode: "", target: -1, los: false, listed: "", weapons: "", info: "" }
   return {
     name: profile === "pacifist" ? "mr-probe" : "mr-sq",
     dbg,
@@ -131,7 +180,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
             else
               tracks.set(ev.by, {
                 id: ev.by, pos: [P[0] + Math.cos(ev.bearing ?? 0) * 80, P[1] + Math.sin(ev.bearing ?? 0) * 80, P[2]], vel: [0, 0, 0],
-                hp: 1400, maxHp: 1400, cubes: 0, weapons: [], lastListed: -99, lastLos: -99, lastAttack: t, firstSeen: t, listed: false, los: false,
+                hp: 1400, maxHp: 1400, cubes: 0, weapons: [], lastListed: -99, lastLos: -99, lastAttack: t, firstSeen: t, listed: false, los: false, appT: 0,
               })
           } else if (ev.weapon !== "zone") {
             lastHurtT = t
@@ -151,11 +200,25 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
       }
       // Mode detection: in practice house bots never kill each other.
       if (!ffa && totalMechs - obs.alive > kills + PRM.ffaSlack) ffa = true
+      const npcs = obs.mechs.filter((m) => m.kind === "npc")
+      // ...nor damage each other: a listed mech losing a weapon-sized chunk of HP that we did not hit,
+      // with no NPC drone near it, is someone else's fight (FFA evidence)
+      if (!ffa && PRM.ffaHpDrop > 0) {
+        const hitNow = new Set<number>()
+        for (const ev of obs.events ?? []) if (ev.type === "hit") hitNow.add(ev.target)
+        for (const m of obs.mechs) {
+          if (m.kind !== "mech" || m.id === me.id) continue
+          const tr = tracks.get(m.id)
+          if (!tr || !tr.listed || m.hp === undefined || hitNow.has(m.id)) continue
+          if (tr.hp - m.hp >= PRM.ffaHpDrop && !npcs.some((n) => dist2(n.pos, m.pos) < 70)) ffaEvidence++
+        }
+        if (ffaEvidence >= 2) ffa = true
+      }
+      const sq = !ffa
 
       if (obs.offer && obs.offer.choices?.length) act.pick = pickUpgrade(obs.offer.choices)
 
       // ---------------- world summary
-      const npcs = obs.mechs.filter((m) => m.kind === "npc")
       const hpFrac = me.hp / Math.max(1, me.max_hp)
       const muzzle: V3 = [P[0], P[1], P[2] + (st.muzzle_height ?? 7 * mySize)]
       const tube: V3 = [P[0], P[1], P[2] + 9.5 * mySize]
@@ -182,9 +245,18 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         if (!tr) {
           tr = {
             id: m.id, pos: [0, 0, 0], vel: [0, 0, 0], hp: 1400, maxHp: 1400, cubes: 0, weapons: [],
-            lastListed: t, lastLos: -99, lastAttack: -99, firstSeen: t, listed: true, los: false,
+            lastListed: t, lastLos: -99, lastAttack: -99, firstSeen: t, listed: true, los: false, appT: 0,
           }
           tracks.set(m.id, tr)
+        }
+        // approach detector: moving straight at us for a while (squad hunters path to our position)
+        {
+          const dt = clamp(t - tr.lastListed, 0, 0.3)
+          const dx = P[0] - m.pos[0], dy = P[1] - m.pos[1]
+          const dd = Math.hypot(dx, dy), sp = Math.hypot(m.vel[0], m.vel[1])
+          const cosA = dd > 1 && sp > 1e-3 ? (m.vel[0] * dx + m.vel[1] * dy) / (dd * sp) : 0
+          if (sp > 5 && cosA > 0.8 && dd > 30) tr.appT += dt
+          else tr.appT = Math.max(0, tr.appT - 2 * dt)
         }
         tr.pos = [m.pos[0], m.pos[1], m.pos[2]]
         tr.vel = [m.vel[0], m.vel[1], m.vel[2]]
@@ -201,6 +273,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
       }
       for (const [id, tr] of tracks) if (t - tr.lastListed > PRM.huntMemS && t - tr.lastAttack > PRM.huntMemS) tracks.delete(id)
       const isAttacker = (tr: Track) => t - tr.lastAttack < PRM.attackerS
+      /** attacker, or (approach detector) a mech that has been walking straight at us */
+      const isThreat = (tr: Track) => isAttacker(tr) || (PRM.approachS > 0 && tr.appT >= PRM.approachS && tr.listed)
       let engagedBy = 0
       for (const tr of tracks.values()) if (isAttacker(tr) && t - tr.lastListed < 3) engagedBy++
       const underFire = t - lastHurtT < PRM.attackerS
@@ -256,7 +330,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         const tr = tracks.get(e.id)!
         const d = dist3(P, e.pos)
         const ef = (e.hp ?? 1400) / Math.max(1, e.max_hp ?? 1400)
-        const attacker = isAttacker(tr)
+        const attacker = isThreat(tr)
         if (!attacker) {
           // passive (or not yet hostile) mech: engage only when we can afford it
           let allowed = !healing && (hpFrac >= PRM.engageHp || ef < PRM.finishHp || d < PRM.closeEngage)
@@ -368,6 +442,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         if (mortarW && mortarS >= 0 && primary === "mortar" && desired && tDist > 20) {
           if (Math.abs(angDiff(ay, desired[0])) < 0.03 && Math.abs(ap - desired[1]) < 0.03) fire[mortarS] = true
         }
+        dbg.info = `${primary} d${Math.round(tDist)} gOk${+gunOk} sh${+shotOk(muzzle, gunSol.at)} am${gunW?.ammo ?? -1} rl${(gunW?.reload ?? 0).toFixed(1)} lc${(laserW?.charge ?? 0).toFixed(2)} lcd${(laserW?.cooldown ?? 0).toFixed(2)} f${+fire[0]}${+fire[1]} dy${angDiff(ay, desired![0]).toFixed(3)} dp${(ap - desired![1]).toFixed(3)}`
       } else if (laserW && laserS >= 0 && (laserW.charge ?? 0) > 0) {
         // charged with nobody to shoot: hold for a while, then let it go
         if (laserNoTargetSince < 0) laserNoTargetSince = t
@@ -458,7 +533,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           mode = "retreat"
           move = norm2([-toT[0] + perp[0] * 0.6 + zonePull[0] * 1.2, -toT[1] + perp[1] * 0.6 + zonePull[1] * 1.2])
           boost = me.energy > 35
-        } else if (!losNow && tgtTrack && !isAttacker(tgtTrack) && follow && t - tgtTrack.lastLos > 1) {
+        } else if (!losNow && tgtTrack && !isThreat(tgtTrack) && follow && t - tgtTrack.lastLos > 1) {
           // passive target behind cover: walk around to it
           mode = "chase"
           const m = goPath(target.pos[0], target.pos[1], target.pos[2], 6)
@@ -478,13 +553,26 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           mode = "fight"
           const pr = PRM.prefRange
           let pref = primary === "lightning" ? pr.lightning : primary === "laser" ? pr.laser : primary === "mortar" ? pr.mortar : lightW ? pr.gunWithLightning : pr.gun
-          if (tgtTrack && !isAttacker(tgtTrack)) {
-            if (lightW && PRM.passiveRangeL > 0) pref = PRM.passiveRangeL
-            else if (!lightW && PRM.passiveRangeG > 0) pref = PRM.passiveRangeG
+          if (tgtTrack && !isThreat(tgtTrack)) {
+            if (sq && lightW && PRM.passiveRangeL > 0) pref = PRM.passiveRangeL
+            else if (sq && !lightW && PRM.passiveRangeG > 0) pref = PRM.passiveRangeG
           }
           const radial = clamp((d - pref) / Math.max(20, pref * 0.5), -1, 1)
           move = norm2([toT[0] * radial + perp[0] + zonePull[0] * 1.5, toT[1] * radial + perp[1] + zonePull[1] * 1.5])
           boost = outside && me.energy > 30
+          // grab cubes lying close by while fighting (kill drops: +HP, +damage)
+          if (PRM.cubeGrab > 0 && me.cubes < 30) {
+            let bc: ArrayLike<number> | null = null, bd = PRM.cubeGrab
+            for (const cu of obs.cubes ?? []) {
+              const dc = dist2(P, cu.pos)
+              if (dc < bd && Math.abs(cu.pos[2] - P[2]) < 4 && safeHere(cu.pos)) (bd = dc), (bc = cu.pos)
+            }
+            if (bc) {
+              mode = "fight-cube"
+              const tc = norm2([bc[0] - P[0], bc[1] - P[1]])
+              move = norm2([tc[0] * 1.5 + perp[0] * 0.4, tc[1] * 1.5 + perp[1] * 0.4])
+            }
+          }
         }
         if (profile === "pacifist") desired = aimAt(muzzle, centerOf(target))
       } else {
@@ -518,7 +606,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
             if (farm.kind === "crate" && d > 12) (goal = [farm.pos[0], farm.pos[1]]), (goalDist = d), (mode = "farm")
           }
           // hunt: go where enemies were last seen or heard
-          if (!goal && !healing && hpFrac >= PRM.huntHp && t < PRM.huntUntil && !underFire) {
+          if (!goal && sq && !healing && hpFrac >= PRM.huntHp && t < PRM.huntUntil && !underFire) {
             let bd = Infinity
             let hg: V3 | null = null
             for (const tr of tracks.values()) {
@@ -585,6 +673,37 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         move = dd > 1.2 ? norm2([duckPt[0] - P[0], duckPt[1] - P[1]]) : [0, 0]
         boost = dd > 3 && me.energy > 8
         jump = false
+      }
+
+      // ---------------- mortar dodge: incoming shell landing near us -> get out of the splash
+      if (PRM.dodgeMortar && profile === "fighter") {
+        let ax = 0, ay = 0, n = 0
+        for (const pr of obs.projectiles ?? []) {
+          if (pr.kind !== "mortar") continue
+          const z0 = pr.pos[2] - P[2], vz = pr.vel[2]
+          const disc = vz * vz + 2 * mortarG * z0
+          if (disc < 0) continue
+          const th = (vz + Math.sqrt(disc)) / mortarG
+          if (!(th > 0) || th > 8) continue
+          const ix = pr.pos[0] + pr.vel[0] * th, iy = pr.pos[1] + pr.vel[1] * th
+          const dx = P[0] - ix, dy = P[1] - iy
+          const dd = Math.hypot(dx, dy)
+          if (dd > mortarSplash + PRM.dodgeMargin) continue
+          // away from the impact point; straight on top of it: sideways to the shell's path
+          if (dd > 0.5) (ax += dx / dd), (ay += dy / dd)
+          else {
+            const vl = Math.hypot(pr.vel[0], pr.vel[1]) || 1
+            ax += (-pr.vel[1] / vl) * jinkSign
+            ay += (pr.vel[0] / vl) * jinkSign
+          }
+          n++
+        }
+        if (n > 0 && (ax !== 0 || ay !== 0)) {
+          mode = "dodge"
+          move = norm2([ax, ay])
+          boost = me.energy > 5
+          jump = false
+        }
       }
 
       // ---------------- take weapons in reach

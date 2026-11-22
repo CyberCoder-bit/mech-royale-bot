@@ -32,6 +32,7 @@ let lastLabel = ""
 let nextPrint = 1
 const quiet = process.env.QUIET === "1"
 const stat = { unseenDmg: 0, seenDmg: 0, multiDmg: 0, soloDmg: 0, hits: 0 }
+const byW: Record<string, number> = {}
 const recentAtk = new Map<number, number>()
 let lastListed = new Set<number>()
 while (!m.over && t0.alive) {
@@ -43,6 +44,7 @@ while (!m.over && t0.alive) {
   for (const e of t0.events as any[]) {
     if (e.type === "damaged" && e.by !== null) {
       recentAtk.set(e.by, m.t)
+      byW[e.weapon] = (byW[e.weapon] ?? 0) + e.amount
       if (lastListed.has(e.by)) stat.seenDmg += e.amount
       else stat.unseenDmg += e.amount
       let n = 0
@@ -64,6 +66,8 @@ while (!m.over && t0.alive) {
     if (x.id === 0) {
       const g = agents[0].bot?.dbg
       if (g) lastLabel = `${g.mode} ${g.weapons} t${g.target}${g.los ? "+" : "-"} L:${g.listed}`
+      const win = (process.env.WIN ?? "").split(",").map(Number)
+      if (g && win.length === 2 && m.t >= win[0] && m.t <= win[1]) console.log(`  ${m.t.toFixed(2)} ${lastLabel} | ${g.info} aim=${obs[k].self.aim.map((v: number) => v.toFixed(3))} cmd=${a.aim?.map((v: number) => v.toFixed(3))} fire=${a.fire}`)
     }
     return a
   })
@@ -78,5 +82,5 @@ while (!m.over && t0.alive) {
     dealtWin = 0
   }
 }
-console.log(`STAT seed ${seed} unseen ${stat.unseenDmg.toFixed(0)} seen ${stat.seenDmg.toFixed(0)} multi ${stat.multiDmg.toFixed(0)} solo ${stat.soloDmg.toFixed(0)} kills ${t0.stats.kills}`)
+console.log(`STAT seed ${seed} unseen ${stat.unseenDmg.toFixed(0)} seen ${stat.seenDmg.toFixed(0)} multi ${stat.multiDmg.toFixed(0)} solo ${stat.soloDmg.toFixed(0)} kills ${t0.stats.kills} byW ${JSON.stringify(byW)}`)
 console.log(`test died t=${t0.deathT?.toFixed(1)} place ${t0.place} by ${t0.killedBy} (${names[t0.killedBy ?? 0]}) with ${t0.killedWith}`)

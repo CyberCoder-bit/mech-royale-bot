@@ -35,6 +35,8 @@ export const P = {
   zoneMarginMax: 40,
   /** FFA detector: deaths not caused by us beyond this slack switch to FFA mode. */
   ffaSlack: 1,
+  /** FFA detector: a listed mech losing at least this much HP in one obs without our hit (no NPC near) counts as evidence; 2 = FFA (0 = off). */
+  ffaHpDrop: 40,
 
   // ---------------- squad tactics (sq)
   /** Use the map model (LOS gates, nav paths). */
@@ -79,6 +81,20 @@ export const P = {
   lootFirstIgnore: 40,
   /** Spin the torso this long at the start (s) to see loot all around. */
   openScanS: 2,
+  /** Fight: walk over visible cubes within this range (m) while fighting (0 = off). */
+  cubeGrab: 0,
+  /** Mortar dodge: run out of the predicted splash of visible incoming shells (radius + margin m). */
+  dodgeMortar: true,
+  dodgeMargin: 4,
+  /** Approach detector: a mech walking straight at us this long (s) counts as a threat (0 = off). */
+  approachS: 3,
+  /** JIT warm-up of the world/nav code at hello (ms of wall time, 0 = off). */
+  warmMs: 400,
+  /** Cold-start guard: skip loading the map / nav / warm-up once the process is this old (ms since start). */
+  initSkipMs: 6000,
+  /** A* budget per plan: expansions (deterministic; 0 = use the follower's time budget) and a wall-time safety cap (ms). */
+  planExpand: 1500,
+  planCapMs: 12,
   /** Duck: an enemy charging a laser at us with a clear line -> move to the nearest cover within this radius (m); 0 = off. */
   duckR: 0,
   /** Reveal: shot by an attacker we can't see within this many seconds -> face it and advance to see it (0 = off). */
