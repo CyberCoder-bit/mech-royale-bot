@@ -13,6 +13,7 @@ import { P as PRM, type Profile } from "./params.ts"
 import { loadWorld, navFor, PathFollower, type World } from "./world/index.ts"
 import { bestSpots, loadExposure } from "./expo/exposure.ts"
 import { FfaBrain } from "./brain/ffa.ts" // FFA hook
+import { RoofBrain, type RoofEnemy, type RoofIn, type RoofOut } from "./brain/roof.ts" // roof hook
 
 const WEAPON_PREF: WeaponKind[] = PRM.weaponPref
 const UPGRADE_PREF = PRM.upgradePref
@@ -45,7 +46,7 @@ type Track = {
   appT: number
 }
 
-export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { dbg: { mode: string; target: number; los: boolean; listed: string; weapons: string; info: string } } {
+export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { dbg: { mode: string; target: number; los: boolean; listed: string; weapons: string; info: string; roof?: unknown } } {
   const cfg = hello.config
   const rand = rng(((Number(hello.seed) || 1) + Math.imul(PRM.rngSalt | 0, 0x9e3779b1)) >>> 0 || 1)
   const totalMechs = cfg.match?.mechs ?? 16
@@ -128,6 +129,16 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
       ffaBrain = new FfaBrain(hello)
     } catch {}
   // ==== end FFA hook ====
+  // ==== roof hook (1/5): roof brain (src/brain/roof.ts), squad mode only, needs the map model ====
+  let roof: RoofBrain | null = null
+  if (PRM.roofMode && profile === "fighter" && world && follow)
+    try {
+      roof = new RoofBrain(world, follow.nav, follow)
+    } catch (e) {
+      log("roof brain off", e)
+      roof = null
+    }
+  // ==== end roof hook ====
 
   // ---- per-instance state
   let kills = 0
@@ -178,7 +189,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   const shotOk = (a: V3, b: V3) => !PRM.losGate || !world || world.shotClear(a, b)
 
   /** read-only debug view for local tools (not part of the protocol) */
-  const dbg = { mode: "", target: -1, los: false, listed: "", weapons: "", info: "" }
+  const dbg: { mode: string; target: number; los: boolean; listed: string; weapons: string; info: string; roof?: unknown } = { mode: "", target: -1, los: false, listed: "", weapons: "", info: "" }
   return {
     name: profile === "pacifist" ? "mr-probe" : "mr-sq",
     dbg,
@@ -353,7 +364,9 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
       }
 
       // ---------------- target selection
-      const healing = profile === "fighter" && hpFrac < PRM.healHp && !underFire
+      // roof hook (2/5): hurt on a refuge/idle roof with nobody shooting at us -> hold fire on passive targets, regen
+      const roofHeal = !!roof && sq && roof.healing(hpFrac, P, me.grounded)
+      const healing = profile === "fighter" && (hpFrac < PRM.healHp || roofHeal) && !underFire
       let target: ActorObs | null = null
       let tScore = Infinity
       for (const e of listed) {
@@ -576,7 +589,43 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         return o.move
       }
 
-      if (target) {
+      // ==== roof hook (3/5): refuge trip / healing on a roof owns movement (squad mode only) ====
+      let roofOut: RoofOut | null = null
+      let onRoof = false
+      let roofInp: RoofIn | null = null
+      if (roof && sq) {
+        try {
+          const enemies: RoofEnemy[] = []
+          let rTarget: RoofEnemy | null = null
+          let threatDist = Infinity
+          for (const tr of tracks.values()) {
+            if (t - tr.lastListed > 5) continue
+            const e: RoofEnemy = { x: tr.pos[0], y: tr.pos[1], z: tr.pos[2], cubes: tr.cubes, threat: isThreat(tr) }
+            enemies.push(e)
+            if (target && tr.id === target.id) rTarget = e
+            if (e.threat && t - tr.lastListed < 3) threatDist = Math.min(threatDist, dist2(P, tr.pos))
+          }
+          roofInp = {
+            t, pos: P, vel: me.vel, grounded: me.grounded, energy: me.energy, hpFrac, zone: z, armed: !noSlot1, knownWeapon,
+            enemies, target: rTarget, threatDist, hurtAgo: t - lastHurtT, kills, mySize, jinkSign, climbPerM: jetDrain / jetRise,
+          }
+          roofOut = roof.control(roofInp)
+          onRoof = !!roofOut && roof.onRoof(P, me.grounded)
+        } catch (e) {
+          log("roof control failed", e)
+          roofOut = null
+          roofInp = null
+        }
+      }
+      let huntFallback = false
+      if (roofOut) {
+        move = roofOut.move
+        boost = roofOut.boost
+        jump = roofOut.jump
+        mode = roofOut.mode
+        pathed = true
+      } else if (target) {
+        // ==== end roof hook ====
         const ty = yawTo(P, target.pos)
         const d = dist2(P, target.pos)
         const ef = (target.hp ?? 1400) / Math.max(1, target.max_hp ?? 1400)
@@ -673,7 +722,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
               if (d < bd) (bd = d), (hg = [gx, gy, tr.pos[2]])
             }
             if (!hg && soundPt && t - soundPt.t < 15 && safeHere([soundPt.x, soundPt.y])) hg = [soundPt.x, soundPt.y, P[2]]
-            if (!hg && nr > 1) hg = [nc[0], nc[1], P[2]]
+            if (!hg && nr > 1) (hg = [nc[0], nc[1], P[2]]), (huntFallback = true)
             if (hg) (goal = [hg[0], hg[1]]), (goalDist = dist2(P, hg)), (goalZ = hg[2]), (mode = "hunt")
           }
         }
@@ -724,6 +773,24 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           move = [move[0] * 0.5, move[1] * 0.5]
           goal = null
         }
+        // ==== roof hook (4/5): nothing to fight, loot or hunt (idle, zone walk, the hunt's zone-center fallback): wait on a roof ====
+        if (roof && sq && roofInp && !outside && !underFire && (mode === "idle" || mode === "zone" || mode === "heal" || (mode === "hunt" && huntFallback))) {
+          try {
+            const ro = roof.idle(roofInp)
+            if (ro) {
+              move = ro.move
+              boost = ro.boost
+              jump = ro.jump
+              mode = ro.mode
+              pathed = true
+              goal = null
+              onRoof = roof.onRoof(P, me.grounded)
+            }
+          } catch (e) {
+            log("roof idle failed", e)
+          }
+        }
+        // ==== end roof hook ====
         if (goal) {
           const m = goalDist > 8 ? goPath(goal[0], goal[1], goalZ, mode === "hunt" ? 8 : 2.5) : null
           if (m) move = m
@@ -829,6 +896,9 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         }
       }
 
+      // roof hook (5/5): while the roof brain moves us on a roof, never walk (or dodge) off its edge
+      if (roof && onRoof) move = roof.clampMove(P, move)
+
       // ---------------- take weapons in reach
       for (const p of obs.pickups ?? []) {
         if (p.kind === "gun" || slotOf(p.kind) >= 0) continue
@@ -872,6 +942,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
       if (!desired && t < PRM.openScanS) desired = [me.aim[0] + 1.4, -0.1]
       if (!desired) {
         if (now - lastHurtT < 4 && hurtBearing !== null) desired = [hurtBearing, 0]
+        else if (onRoof && PRM.roofScan > 0) desired = [me.aim[0] + PRM.roofScan, -0.05]
         else {
           scanPhase += 0.12
           const base = wantMove ? Math.atan2(move[1], move[0]) : me.aim[0]
@@ -886,6 +957,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
       act.boost = boost
       act.jump = jump
       dbg.mode = mode
+      if (roof) dbg.roof = roof.stats
       dbg.target = target ? target.id : -1
       dbg.los = losNow
       dbg.weapons = me.weapons.map((w) => w?.kind ?? "-").join("/")

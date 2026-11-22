@@ -137,6 +137,52 @@ export const P = {
   /** Salt mixed into the bot's RNG seed (0 = unchanged). Variants with different salts play the same strategy with different random choices. */
   rngSalt: 2,
   earlySafeFinish: true,
+
+  // ---------------- roofs (src/brain/roof.ts; squad mode only, the FFA brain/FFA play never use them)
+  /** Master switch for the roof brain (needs the map model and data/roofs.json). */
+  roofMode: true,
+  /** Refuge: play as usual, but below refugeHp climb the best roof within refugeR m and heal there to refugeExitHp. */
+  roofRefuge: true,
+  refugeHp: 0.5,
+  refugeExitHp: 0.95,
+  refugeR: 110,
+  /** ...not while a threat is closer than this (m) */
+  refugeMinThreat: 0,
+  /** ...only after this many seconds without taking damage */
+  refugeCalmS: 0,
+  /** ...give up a trip that has not reached the roof after this long (s) */
+  refugeMaxTravelS: 25,
+  /** ...on the roof, step out to targets only at or above this HP fraction (or when they are close) */
+  refugePeekHp: 0.95,
+  /** Idle: with nothing to fight, loot or hunt, wait on a roof within roofIdleR m inside the next zone (after roofIdleT s). */
+  roofIdle: false,
+  roofIdleR: 120,
+  roofIdleT: 3,
+  /** Roof filters: highest climb (m), smallest area (m²), least depth (2 m nav cells from the edge), least height (m). */
+  roofMaxClimb: 40,
+  roofMinArea: 500,
+  roofMinDepth: 3,
+  roofMinH: 15,
+  /** Roof choice weights: cover reach, ground-viewer exposure of the spot. */
+  roofCoverW: 0.6,
+  roofExpW: 1.5,
+  /** Zone: the roof spot must lie inside the next circle by max(roofZoneMin, roofZoneFrac * radius). */
+  roofZoneMin: 10,
+  roofZoneFrac: 0.15,
+  /** On the roof: keep move targets at least this many nav cells (2 m) from the edge. */
+  roofEdgeDepth: 1,
+  /** On the roof: weight of a line to our top only (hull-down), and of the target's own line to us while engaging. */
+  roofTopW: 0.25,
+  roofTgtExpW: 0,
+  /** On the roof with nothing in view: torso scan step per decision (rad; 0 = normal scan). */
+  roofScan: 0.25,
+  /** Fortress mode only (roofRefuge and roofIdle off): start conditions, peek/heal thresholds, fight radius. */
+  roofLootS: 30,
+  roofStartKills: 0,
+  roofStartT: 0,
+  roofPeekHp: 0.45,
+  roofHealHp: 0.7,
+  roofFightR: 35,
 }
 
 /**
