@@ -5,22 +5,14 @@
 import { draw, type ActorObs, type Bot, type BotAction, type Hello, type Observation, type OfferChoice, type WeaponKind } from "./mechfight.ts"
 import { aimAt, ballisticPitch, leadPoint } from "./brain/aim.ts"
 import { angDiff, clamp, dist2, dist3, rng, unit, yawTo, type V2, type V3 } from "./util/math.ts"
+import { P as PRM, type Profile } from "./params.ts"
 
-export type Profile = "fighter" | "pacifist"
-/** Build profile. "pacifist" is a probe build: never fires, avoids enemies. */
-export const PROFILE: Profile = "fighter"
-
-/** Slot-1 weapon preference, best first. */
-const WEAPON_PREF: WeaponKind[] = ["laser", "lightning", "mortar"]
-const UPGRADE_PREF = [
-  "plating", "armor", "nanites", "gun_damage", "gun_rate", "laser_damage", "laser_charge", "lightning_efficiency",
-  "lightning_range", "gyros", "gun_velocity", "gun_mag", "servos", "sensors", "mortar_reload", "mortar_velocity",
-  "mortar_splash", "lightning_chain", "laser_pierce", "reactor", "capacitor", "jets",
-]
+const WEAPON_PREF: WeaponKind[] = PRM.weaponPref
+const UPGRADE_PREF = PRM.upgradePref
 
 type Primary = "gun" | "laser" | "lightning" | "mortar"
 
-export function makeBot(hello: Hello, profile: Profile = PROFILE): Bot {
+export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot {
   const cfg = hello.config
   const rand = rng(Number(hello.seed) || 1)
   const totalMechs = cfg.match?.mechs ?? 16
@@ -88,7 +80,7 @@ export function makeBot(hello: Hello, profile: Profile = PROFILE): Bot {
         } else if (ev.type === "kill") kills++
       }
       // Mode detection: in practice house bots never kill each other.
-      if (!ffa && totalMechs - obs.alive > kills + 1) ffa = true
+      if (!ffa && totalMechs - obs.alive > kills + PRM.ffaSlack) ffa = true
 
       if (obs.offer && obs.offer.choices?.length) act.pick = pickUpgrade(obs.offer.choices)
 
@@ -109,7 +101,7 @@ export function makeBot(hello: Hello, profile: Profile = PROFILE): Bot {
       const z = obs.zone
       const nc = z.next_center as V2, nr = z.next_radius
       const dNext = dist2(P, nc)
-      const margin = nr < 1 ? 0 : Math.max(6, Math.min(40, nr * 0.25))
+      const margin = nr < 1 ? 0 : Math.max(PRM.zoneMarginMin, Math.min(PRM.zoneMarginMax, nr * PRM.zoneMarginFrac))
       const needZone = nr < 1 ? dNext > 2 : dNext > nr - margin
       const zoneYaw = yawTo(P, nc)
       const outside = !me.in_zone
@@ -133,14 +125,14 @@ export function makeBot(hello: Hello, profile: Profile = PROFILE): Bot {
       let farm: { pos: V3; id: number; kind: "npc" | "crate" } | null = null
       if (!target && profile === "fighter") {
         let best = Infinity
-        if (hpFrac > 0.7)
+        if (hpFrac > PRM.farmNpcHp)
           for (const n of npcs) {
             const d = dist3(P, n.pos)
-            if (d < 70 && d < best) (best = d), (farm = { pos: centerOf(n), id: n.id, kind: "npc" })
+            if (d < PRM.farmRange && d < best) (best = d), (farm = { pos: centerOf(n), id: n.id, kind: "npc" })
           }
         for (const c of obs.crates ?? []) {
           const d = dist3(P, c.pos)
-          if (d < 70 && d + 20 < best) (best = d + 20), (farm = { pos: [c.pos[0], c.pos[1], c.pos[2] + 1.2], id: c.id, kind: "crate" })
+          if (d < PRM.farmRange && d + 20 < best) (best = d + 20), (farm = { pos: [c.pos[0], c.pos[1], c.pos[2] + 1.2], id: c.id, kind: "crate" })
         }
       }
 
@@ -234,7 +226,7 @@ export function makeBot(hello: Hello, profile: Profile = PROFILE): Bot {
       const now = t
       if (now - jinkUntil > 0) {
         jinkSign = -jinkSign
-        jinkUntil = now + 0.45 + rand() * 0.8
+        jinkUntil = now + PRM.jinkMin + rand() * PRM.jinkRand
       }
       const zonePull: V2 = needZone ? unit(zoneYaw) : [0, 0]
 
@@ -244,12 +236,13 @@ export function makeBot(hello: Hello, profile: Profile = PROFILE): Bot {
         const ef = (target.hp ?? 1400) / Math.max(1, target.max_hp ?? 1400)
         const toT = unit(ty)
         const perp: V2 = [-toT[1] * jinkSign, toT[0] * jinkSign]
-        const retreat = profile === "pacifist" || (hpFrac < 0.35 && (ef > hpFrac + 0.1 || enemies.length > 1))
+        const retreat = profile === "pacifist" || (hpFrac < PRM.retreatHp && (ef > hpFrac + PRM.retreatMargin || enemies.length > 1))
         if (retreat) {
           move = norm2([-toT[0] + perp[0] * 0.6 + zonePull[0] * 1.2, -toT[1] + perp[1] * 0.6 + zonePull[1] * 1.2])
           boost = me.energy > 35
         } else {
-          const pref = primary === "lightning" ? 20 : primary === "laser" ? 110 : primary === "mortar" ? 120 : lightW ? 30 : 70
+          const pr = PRM.prefRange
+          const pref = primary === "lightning" ? pr.lightning : primary === "laser" ? pr.laser : primary === "mortar" ? pr.mortar : lightW ? pr.gunWithLightning : pr.gun
           const radial = clamp((d - pref) / Math.max(20, pref * 0.5), -1, 1)
           move = norm2([toT[0] * radial + perp[0] + zonePull[0] * 1.5, toT[1] * radial + perp[1] + zonePull[1] * 1.5])
           boost = outside && me.energy > 30
@@ -261,14 +254,14 @@ export function makeBot(hello: Hello, profile: Profile = PROFILE): Bot {
         let goalDist = needZone ? dNext : 0
         const safeHere = (p: ArrayLike<number>) => nr < 1 || dist2(p, nc) < nr + 25
         if (profile === "fighter" && hpFrac > 0.25) {
-          let best = 70
+          let best = PRM.lootCubeRange
           for (const c of obs.cubes ?? []) {
             const d = dist2(P, c.pos)
             if (d < best && safeHere(c.pos) && Math.abs(c.pos[2] - P[2]) < 25) (best = d), (goal = [c.pos[0], c.pos[1]]), (goalDist = d)
           }
           const wantWeapon = !me.weapons[1] || (me.weapons[1] && WEAPON_PREF.indexOf(me.weapons[1].kind) > 0)
           if (wantWeapon) {
-            let bestW = 90
+            let bestW = PRM.lootWeaponRange
             for (const p of obs.pickups ?? []) {
               if (p.kind === "gun" || slotOf(p.kind) >= 0) continue
               const cur = me.weapons[1]?.kind
