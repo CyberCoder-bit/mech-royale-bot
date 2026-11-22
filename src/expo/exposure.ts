@@ -280,7 +280,9 @@ export class ExposureMap {
     const c = this.cell;
     const i0 = Math.max(0, Math.floor((cx - radius - this.x0) / c)), i1 = Math.min(this.nx - 1, Math.floor((cx + radius - this.x0) / c));
     const j0 = Math.max(0, Math.floor((cy - radius - this.y0) / c)), j1 = Math.min(this.ny - 1, Math.floor((cy + radius - this.y0) / c));
-    const maxN = Math.max(0, (i1 - i0 + 1) * (j1 - j0 + 1) * 2);
+    // off-map circle or bad input (NaN): nothing to do (and no inverted-range allocation)
+    if (!(i1 >= i0 && j1 >= j0) || !(k > 0)) return [];
+    const maxN = (i1 - i0 + 1) * (j1 - j0 + 1) * 2;
     if (this.candQ.length < maxN) {
       this.candQ = new Int32Array(maxN);
       this.candS = new Float32Array(maxN);
