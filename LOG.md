@@ -39,3 +39,4 @@
 | 01:22 | econ 18d44eb | crate/drone/cube farming memory (off), cube cap 10 (on), supply drops, upgrade order | +0.04 ± 0.02 (1000 seeds); farming 0.00; drops +0.09 ± 0.27 | ffa identical | not submitted: cubes grow size (+5% each) so defence ~cancels |
 | 01:45 | v4 ecb87e1 | official (new scorer) | sim ≈ v3 −0.06 | – | **4.73** (−0.37 vs v3; ~1σ of real per-variant noise) |
 | 01:46 | cube45 4584e63 | v3 + cube grab 45 + boost (no earlySafe) | 480 seeds +0.20 ± 0.09 (replicated +0.21), HK0 +0.27 | ffa +0.55 ± 0.24 vs v3 | pending |
+| 01:58 | sq2 earlySafeT sweep on cubes | T15 −0.26 ± 0.11, T6 −0.11 ± 0.08 vs no-earlySafe (480 seeds); FFA vs v3: T15 +0.93, T6 +0.90, none +0.55; earlyProbe dead end | – | – | plan: final build = cubes + earlySafeT 6, fish with rngSalt variants |
