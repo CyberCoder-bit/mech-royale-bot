@@ -14,3 +14,4 @@
 | 22:58 | v1 core (eb67cdd) | world lib, cover/peek, low-exposure holds, mortar dodge, heal/hide off in squad | 3.93 vs v0 3.11 (96 paired, +0.81 ± 0.28); pessimistic 1.88 vs 1.27 | – | pending |
 | 23:03 | v1 core (eb67cdd) | official result | sim said +0.8 | – | **3.00** (worse than v0 3.38: sim over-predicts hiding/holding) |
 | 23:15 | sq 4f97c93 (squad tactics on v0+world) | loot memory, focus fire + close-in, hunting, mortar dodge, reveal, LOS gating | 4.71 vs 3.21 (+1.50 ± 0.43); HK0 4.60 vs 3.29; pess 1.75 vs 1.27 | ffa 8.56 vs 10.19 (regression, gated later) | pending |
+| 23:18 | sq 4f97c93 | official result | sim predicted 4.71 / HK0 4.60 | – | **4.63** NEW BEST (entered in final) |
