@@ -19,17 +19,26 @@ bun sim/run.ts --mode ffa --seeds 48 --bot "bun src/main.ts" --field "inproc:src
 bun sim/run.ts --compare runs/a.json runs/b.json
 ```
 
-Bot specs: `inproc:<path>[@profile]` (in-process, the module must export `makeBot`; bundled older versions work:
-`bun build src/bot.ts --target=bun --outfile runs/bots/v3.js`), `house:<archetype>` (in-process house-like bot), or
+Bot specs: `inproc:<path>[@profile]` (in-process; the module must export `makeBot`, and `@profile` is passed as its
+second argument), `house:<archetype>` (in-process house-like bot: easy, medium, hard, expert, brawler, sniper,
+thirdparty, farmer, plus the sim-only `top` imitation of other teams' bots), or
 any other string, which is run as a subprocess command speaking mechfight/1 on stdin/stdout, exactly like
 `kit/check/check.py` and the real server do it (hello, ready within `hello_budget_ms`, one obs per decision, the tick
 echoed, a 50 ms wall-clock deadline, coast then idle on missing answers, `end` at death or match end).
 
+Past versions for `ffa`: `sim/bundle.sh <git-ref> [out.js]` bundles that ref's `src/` into one module that exports
+`makeBot` and its `draw` singleton (the sim clears drawings after every act). Example:
+`sim/bundle.sh v3 runs/bots/v3.js`, then `--field "inproc:runs/bots/v3.js*4,house:top*11"`.
+
 Other flags:
-- `--squad "t_all=330,hunters_know_position=1,base_hunters=1,nonhunter_engage_m=..,retaliate_s=6,escalate_every_s=0,first_hunter_t=0"`: squad controller.
-- `--house "aim_mul=..,react_mul=..,lead_mul=..,fire_duty=..,hop_rate=.."`: global house-bot skill knobs (calibration).
+- `--squad "k=v,..."`: squad controller. Calibrated defaults: `t_all=330, hunters_know_position=1, base_hunters=1,
+  hunters_per_kill=0.5, nonhunter_engage_m=0, retaliate_s=0, escalate_every_s=0, first_hunter_t=0`.
+- `--house "k=v,..."`: global house-bot knobs. Defaults: `aim_mul=1, react_mul=1, lead_mul=1, fire_duty=0.45,
+  retreat_mul=1, hop_rate=0`.
+- `--full`: keep simulating after the test bot died. By default a match stops there, because the test bot's place is
+  final, and that halves the wall time. Use it for full replays or field statistics.
 - `--budget-ms 50`: the answer deadline for subprocess bots. `--stderr runs/logs`: keep subprocess stderr per match.
-- `--name label`, `--quiet`.
+- `--name label`, `--quiet`, `--seed-start N`, `--jobs N` (one worker process per job; a subprocess bot adds one more).
 
 Output: a readable table on stdout plus `runs/<label>_<ts>.json` with the summary and every match result (place,
 points = 16 - place, survival, kills, death cause and killer, damage, zone seconds, stuck seconds, idle seconds, rear
@@ -49,7 +58,12 @@ Tools:
   sim observations against `kit/mechfight.schema.json` with check.py's own validator (0 invalid in 2241).
 - `bun sim/debug_match.ts <seed> squad` (`VERBOSE=1` for per-bot lines), `bun sim/trace_test.ts <seed> <bot>`:
   per-match diagnostics, including who damaged the test bot and whether it was a hunter.
-- `sim/calibrate.sh "<squad k=v>" "<house k=v>" [seeds] [jobs]`: runs the three reference bots in squad mode.
+- `sim/calibrate.sh "<squad k=v>" "<house k=v>" [seeds] [jobs]`: runs the three reference bots in squad mode, and
+  `python3 -I sim/cal_table.py` tabulates every run in `runs/cal/`.
+- `python3 -I sim/replay_stats.py <replays...>`: gun shots per second by nearest-enemy distance, weapon use, airborne
+  share, speed, death times. Works on sim replays, the public replay, and recorded casts. It's the basis of the
+  house fire_duty and the FFA calibration.
+- `bun test test/sim.test.ts`: rule checks (gun rate, laser damage, jet rise, regen tick, rear multiplier, zone).
 
 ## What is simulated
 
@@ -98,11 +112,56 @@ boost.
 
 ## Calibration (squad mode vs official practice)
 
-CALIBRATION_PLACEHOLDER
+The official practice gives three anchors on its 48 fixed seeds: the kit example scores 1.15, our v0 "fighter" 3.38,
+and the same bot as "pacifist" 0.08. The sim has its own seeds (1-48). Its example is the kit example's TS twin
+in-process (`inproc:src/bot.ts`), and fighter/pacifist are main's `src/bot.ts` profiles in-process.
+
+| squad model (house knobs) | example (1.15) | fighter (3.38) | pacifist (0.08) |
+| --- | --- | --- | --- |
+| non-hunters engage < 60 m and retaliate (fire_duty 1) | 0.23 ± 0.06 | 1.42 ± 0.20 | 0.00 |
+| non-hunters only retaliate, aim/reaction x2 | 0.23 ± 0.07 | 1.48 ± 0.20 | 0.00 |
+| non-hunters only retaliate, fire_duty 0.4, aim/reaction x1.6 | 0.33 ± 0.10 | 2.06 ± 0.26 | 0.00 |
+| passive non-hunters, hunters = 1 + kills, fire_duty 0.45 | 1.10 ± 0.17 | 2.31 ± 0.23 | 0.00 |
+| **default: passive non-hunters, hunters = 1 + floor(kills/2), fire_duty 0.45** | **1.15 ± 0.20** | **3.21 ± 0.27** | **0.06 ± 0.06** |
+
+Findings: a squad that retaliates kills the example far too fast, because the example shoots whatever it sees and
+pulls in everyone near it. The calibrated model is passive non-hunters plus one hunter per two kills. Hunters are
+the weakest alive members, so easy bots come first, and from 330 s on everyone hunts. That reproduces all three
+anchors within one standard error. `fire_duty=0.45` comes from the public replay, not from the fit: real house bots
+fire 0.56-0.77 gun shots/s with an enemy within 30-100 m, and ours fired about 1.5/s at duty 1.
+
+`ffa` (top-team imitation, `top` archetype) against the 7 recorded Top-16 casts (real team bots, current rules):
+
+| | sim, field top*15 (8 matches) | casts (7 matches) |
+| --- | --- | --- |
+| death time Q1 / median / Q3 | 33 / 65 / 134 s | 33 / 85 / 143 s |
+| gun shots/s with nearest enemy 60-100 m / 100-150 m | 0.65 / 0.45 | 0.69 / 0.40 |
+| laser shots per gun shot | 10.6% | 8.1% |
+| mean speed, airborne share | 5.9 m/s, 4% | 6.4 m/s, 7% |
+
+`top` = 0.2 s reaction, 0.7 deg aim noise, 0.95 lead, engages at about 120 m, prefers 75 m, camps (holds its spot 75%
+of roam decisions and fights from where it stands), little boosting, gun+laser first. The default `ffa` field is
+`house:top*12,house:expert*3`.
+
+The kit Python example run as a subprocess is the cross-check of the in-process twin: see the report or
+`runs/cal_python_example.json`.
 
 ## Performance
 
-PERF_PLACEHOLDER
+Measured on this 24-core machine while it was shared (load average 50-75 from other jobs, so treat the numbers as
+lower bounds):
+- One in-process squad match to full length (about 420 s of match time): 6-9 s wall early in the session at lighter
+  load, 48 s at load 70. With the early stop: 14 s (test bot died at 68 s) and 35 s (died at 304 s) at load 70.
+  Observation building (vision, items) is about half the cost, then house AI, then physics.
+- Batches, in-process, full-length matches: 54-73 matches/min with 12 jobs on a lighter load. With the early stop
+  under heavy load: 18.5 matches/min with 12 jobs.
+- Subprocess bot (`bun src/main.ts`): 4-10 matches/min with 8-10 jobs under heavy load. Each decision waits for the
+  bot's answer, so the bot's own speed and the machine load dominate.
+- World load is 40-70 ms and the house nav grid build about 250 ms, once per worker process.
+- Raycasts: about 2.5 us per 150 m LOS ray (prisms + terrain + trees).
+- Late answers: check.py itself measured p99 68 ms for the trivial example bot on this machine under that load. The
+  sim measures the same way, so late answers in a batch usually mean "machine busy". Run timing-sensitive checks on
+  an idle machine, or use the docker check.
 
 ## Fidelity gaps (known)
 
