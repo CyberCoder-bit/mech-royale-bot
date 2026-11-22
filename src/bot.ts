@@ -300,7 +300,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
       const noSlot1 = !me.weapons[1] && !(me.weapons[0] && me.weapons[0].kind !== "gun")
       let knownWeapon = false
       if (noSlot1 && PRM.lootMemRange > 0)
-        for (const pm of pickMem.values()) if (pm.kind !== "gun" && dist2(P, pm.pos) < PRM.lootMemRange) knownWeapon = true
+        for (const pm of pickMem.values()) if (pm.kind !== "gun" && dist2(P, pm.pos) < (sq ? PRM.lootMemRange : PRM.ffaLootRange)) knownWeapon = true
       // sounds of fights / farming: remember a rough source point for hunting
       for (const s of obs.sounds ?? []) {
         if (s.kind === "gun" || s.kind === "laser" || s.kind === "lightning" || s.kind === "mortar" || s.kind === "crate" || s.kind === "npc_gun" || s.kind === "explosion" || s.kind === "step" || s.kind === "boost") {
@@ -414,15 +414,22 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           else primary = "gun"
         }
         let hitscanPt: V3 | null = null
+        let laserAim: [number, number] | null = null
         if (primary === "laser" || primary === "lightning") {
           // hitscan: aim at where it will be at the next decision
           hitscanPt = [c[0] + v[0] * 0.1, c[1] + v[1] * 0.1, c[2] + v[2] * 0.05]
-          desired = aimAt(muzzle, hitscanPt)
+          desired = laserAim = aimAt(muzzle, hitscanPt)
         }
         const gunSpeed = gunW?.stats.speed ?? 252
         const gunSol = leadPoint(muzzle, c, [v[0], v[1], v[2] * 0.3], gunSpeed)
         const gunAim = aimAt(muzzle, gunSol.at)
         if (primary === "gun" || !desired) desired = gunAim
+        // keep the gun busy: lightning's cone covers the gun's lead point, and a laser only needs its
+        // own aim for the last moment of the charge (the torso re-aims in ~0.01 s)
+        if (PRM.gunDuringCharge && gunW && gunW.reload === 0 && (gunW.ammo ?? 0) > 0) {
+          if (primary === "lightning") desired = gunAim
+          else if (primary === "laser" && laserW && (laserW.charge ?? 0) < (laserW.stats.charge ?? 0.75) - PRM.laserSwitchS) desired = gunAim
+        }
 
         // alignment of ACTUAL aim
         const ay = me.aim[0], ap = me.aim[1]
@@ -439,7 +446,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         if (laserW && laserS >= 0) {
           const full = laserW.stats.charge ?? 0.75
           const charge = laserW.charge ?? 0
-          const aligned = !!desired && Math.abs(angDiff(ay, desired[0])) < yawTol && Math.abs(ap - desired[1]) < pitchTol
+          const la = laserAim ?? desired
+          const aligned = !!la && Math.abs(angDiff(ay, la[0])) < yawTol && Math.abs(ap - la[1]) < pitchTol
           const clear = losNow && (!hitscanPt || shotOk(muzzle, hitscanPt))
           const ok = aligned && clear
           if (primary === "laser") {
@@ -599,7 +607,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           }
           const wantWeapon = !me.weapons[1] || (me.weapons[1] && WEAPON_PREF.indexOf(me.weapons[1].kind) > 0)
           if (wantWeapon) {
-            const range = noSlot1 && PRM.lootMemRange > 0 ? PRM.lootMemRange : PRM.lootWeaponRange
+            const range = noSlot1 && PRM.lootMemRange > 0 ? (sq ? PRM.lootMemRange : PRM.ffaLootRange) : PRM.lootWeaponRange
             let bestW = range
             const dzMax = follow ? 45 : 30
             const src: { kind: WeaponKind; pos: ArrayLike<number> }[] = PRM.lootMemRange > 0 ? [...pickMem.values()] : (obs.pickups ?? [])

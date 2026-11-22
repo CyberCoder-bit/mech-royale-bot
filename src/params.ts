@@ -77,10 +77,15 @@ export const P = {
   passiveRangeG: 35,
   /** Loot memory: remembered weapon pickups within this range (m) while slot 1 is empty (0 = off: visible only). */
   lootMemRange: 320,
+  /** ...in FFA mode (detected): long trips across a map full of campers are risky. */
+  ffaLootRange: 320,
   /** While slot 1 is empty and a weapon is known: ignore passive targets farther than this (m). */
   lootFirstIgnore: 40,
   /** Spin the torso this long at the start (s) to see loot all around. */
   openScanS: 2,
+  /** Aim at the gun's lead point while lightning fires or a laser charges (switch to the laser aim this long before full charge). */
+  gunDuringCharge: false,
+  laserSwitchS: 0.12,
   /** Fight: walk over visible cubes within this range (m) while fighting (0 = off). */
   cubeGrab: 0,
   /** Idle (not hunting): wait at the lowest-exposure spot within this radius (m; 0 = off), re-chosen every holdRefresh s. */
