@@ -641,7 +641,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           if (earlySafe && tgtTrack && !isThreat(tgtTrack) && radial > 0) radial = 0
           move = norm2([toT[0] * radial + perp[0] + zonePull[0] * 1.5, toT[1] * radial + perp[1] + zonePull[1] * 1.5])
           // flank a passive target: work around to its back (x1.5 rear hits) at the preferred range
-          if (PRM.flankW > 0 && sq && tgtTrack && !isThreat(tgtTrack) && !needZone) {
+          if (PRM.flankW > 0 && sq && !earlySafe && tgtTrack && !isThreat(tgtTrack) && !needZone) {
             const bk = unit(target.aim[0] + Math.PI)
             const fx = target.pos[0] + bk[0] * pref - P[0], fy = target.pos[1] + bk[1] * pref - P[1]
             const fd = Math.hypot(fx, fy)
