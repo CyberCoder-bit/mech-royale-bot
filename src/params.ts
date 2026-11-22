@@ -123,7 +123,7 @@ export const P = {
   revealS: 3,
   /** Reveal: assumed attacker distance (m) when we never saw it; stop advancing this close to the estimate. */
   revealDist: 60,
-  revealStop: 30,
+  revealStop: 999,
   /** Reveal: blind gun fire at the estimate (trees don't stop shots). */
   revealFire: true,
   /**
