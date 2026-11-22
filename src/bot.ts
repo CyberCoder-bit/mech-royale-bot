@@ -611,10 +611,29 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
             if (sq && lightW && PRM.passiveRangeL > 0) pref = PRM.passiveRangeL
             else if (sq && !lightW && PRM.passiveRangeG > 0) pref = PRM.passiveRangeG
           }
+          // anti-lightning: never sit inside a lightning carrier's reach (45 m auto-aim, ~240 dps, shorts our laser)
+          const antiL = PRM.antiLightR > 0 && !lightW
+          if (antiL && (target.weapons ?? []).includes("lightning")) pref = Math.max(pref, PRM.antiLightR)
           let radial = clamp((d - pref) / Math.max(20, pref * 0.5), -1, 1)
           if (earlySafe && tgtTrack && !isThreat(tgtTrack) && radial > 0) radial = 0
           move = norm2([toT[0] * radial + perp[0] + zonePull[0] * 1.5, toT[1] * radial + perp[1] + zonePull[1] * 1.5])
           boost = outside && me.energy > 30
+          if (antiL) {
+            let rx = 0, ry = 0
+            for (const e of listed) {
+              if (!(e.weapons ?? []).includes("lightning")) continue
+              const de = dist2(P, e.pos)
+              if (de >= PRM.antiLightR) continue
+              const w = (PRM.antiLightR - de) / PRM.antiLightR
+              rx += ((P[0] - e.pos[0]) / Math.max(1, de)) * w
+              ry += ((P[1] - e.pos[1]) / Math.max(1, de)) * w
+            }
+            if (rx !== 0 || ry !== 0) {
+              mode = "fight-antilight"
+              move = norm2([move[0] + rx * 3, move[1] + ry * 3])
+              boost = boost || me.energy > 40
+            }
+          }
           // grab cubes lying close by while fighting (kill drops: +HP, +damage)
           if (PRM.cubeGrab > 0 && me.cubes < 30) {
             let bc: ArrayLike<number> | null = null, bd = PRM.cubeGrab

@@ -75,6 +75,8 @@ export const P = {
   /** Preferred range (m) vs passive (non-attacking) targets: with lightning / gun only; 0 = same as attackers. */
   passiveRangeL: 22,
   passiveRangeG: 35,
+  /** Anti-lightning: hold at least this far (m) from lightning carriers while fighting, and steer away inside it (0 = off). */
+  antiLightR: 60,
   /** Loot memory: remembered weapon pickups within this range (m) while slot 1 is empty (0 = off: visible only). */
   lootMemRange: 320,
   /** ...in FFA mode (detected): long trips across a map full of campers are risky. */
