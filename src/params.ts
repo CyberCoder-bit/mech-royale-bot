@@ -94,6 +94,14 @@ export const P = {
   xfireR: 0,
   /** Target the attacker that hit us in the last 2 s (extra score bonus; 0 = off). */
   tgtRecentAtk: 0,
+  /**
+   * Laser priority (target score units: d/100 + HP fraction, attacker -2, no line +1.2): a laser carrier within
+   * tgtLaserD m gets -tgtLaser (beats a fresh passive target; a laser-armed attacker beats a half-dead passive), one
+   * charging a laser aimed at us another -tgtCharging (beats everything we can see).
+   */
+  tgtLaser: 2.0,
+  tgtCharging: 3.0,
+  tgtLaserD: 220,
   /** Rear hit by an unseen attacker while shooting a non-attacker: drop it and face the shooter. */
   rearReveal: false,
   /** Shoot back at an NPC drone that hit us in the last 3 s, at any HP (when no mech target). */

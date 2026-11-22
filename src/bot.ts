@@ -371,6 +371,10 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         let s = d / 100 + ef * PRM.tgtHp
         if (attacker) s -= PRM.tgtAttacker
         if (t - tr.lastAttack < 2) s -= PRM.tgtRecentAtk // the one shooting us right now: face it (rear hits x1.5)
+        // lasers (315 per hitscan beam, ~76% of the damage that killed us in the real stream): laser carriers first,
+        // and above all a mech charging one at us
+        if (PRM.tgtLaser > 0 && d < PRM.tgtLaserD && e.weapons?.includes("laser")) s -= PRM.tgtLaser
+        if (PRM.tgtCharging > 0 && d < PRM.tgtLaserD && e.charging && Math.abs(angDiff(e.aim[0], yawTo(e.pos, P))) < 0.25) s -= PRM.tgtCharging
         if (!tr.los) s += PRM.tgtNoLos
         if (e.id === curTarget) s -= PRM.tgtSticky + PRM.tgtFocus * (1 - ef)
         if (s < tScore) (tScore = s), (target = e)
