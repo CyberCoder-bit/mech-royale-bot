@@ -372,6 +372,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         if (attacker) s -= PRM.tgtAttacker
         if (t - tr.lastAttack < 2) s -= PRM.tgtRecentAtk // the one shooting us right now: face it (rear hits x1.5)
         if (!tr.los) s += PRM.tgtNoLos
+        // back turned to us: our hits land in its rear arc (x1.5)
+        if (PRM.tgtRear > 0 && e.aim && Math.abs(angDiff(e.aim[0], yawTo(e.pos, P))) > Math.PI / 2) s -= PRM.tgtRear
         if (e.id === curTarget) s -= PRM.tgtSticky + PRM.tgtFocus * (1 - ef)
         if (s < tScore) (tScore = s), (target = e)
       }
