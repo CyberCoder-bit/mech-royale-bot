@@ -110,6 +110,8 @@ export const FP = {
   prefLaser: 100,
   prefGun: 75,
   prefLight: 22,
+  /** run a synchronous full GC at the end of the constructor (before ready) */
+  initGc: 1,
   /** debug label */
   label: 1,
 }
@@ -224,6 +226,12 @@ export class FfaBrain {
     } catch (e) {
       log(`[ffa] warmup failed: ${(e as Error).message}`)
     }
+    // collect the init garbage (map parsing, warm-ups) now, before `ready`, instead of as a long GC
+    // pause during the first ticks of the match
+    try {
+      const B = (globalThis as { Bun?: { gc?: (sync: boolean) => void } }).Bun
+      if (FP.initGc && B?.gc) B.gc(true)
+    } catch {}
   }
   warmMs = 0
 
@@ -255,11 +263,15 @@ export class FfaBrain {
         acc += sp.length
       }
     }
-    const f = new PathFollower(nav)
-    for (let k = 0; k < 2; k++) {
-      const sx = cx - 150 + 60 * k, sy = cy + 20, tx = cx + 120, ty = cy - 60
-      f.setGoal(tx, ty, w.groundZ(tx, ty), 2.5, 6, 3)
-      f.update({ t: k * 10, pos: [sx, sy, w.groundZ(sx, sy)], vel: [0, 0, 0], grounded: true, energy: 100 })
+    // warm our own follower (a throwaway one would leave ~6 MB of A* scratch as garbage), then reset it
+    const f = this.follow
+    if (f) {
+      for (let k = 0; k < 2; k++) {
+        const sx = cx - 150 + 60 * k, sy = cy + 20, tx = cx + 120, ty = cy - 60
+        f.setGoal(tx, ty, w.groundZ(tx, ty), 2.5, 6, 3)
+        f.update({ t: k * 10, pos: [sx, sy, w.groundZ(sx, sy)], vel: [0, 0, 0], grounded: true, energy: 100 })
+      }
+      f.clear()
     }
     if (acc < 0) log("[ffa] warm: impossible")
     return performance.now() - t0
