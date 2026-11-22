@@ -59,7 +59,7 @@ export const P = {
   /** Duck to cover when an enemy laser charging at us is visible and cover is this close (m). */
   duckLaserDist: 14,
   /** Duck when all our weapons are unavailable for at least this long (s). */
-  duckReloadS: 0.7,
+  duckReloadS: 99, // squad: off (paired sim A/B +0.09 and +0.15 without it); FFA override 0.7
   /** Retreat/heal cover search radius (m). */
   retreatSearch: 50,
   /** Remember enemies for heal/cover decisions this long (s). */
@@ -72,7 +72,7 @@ export const P = {
   /** Fight range band [min, max] (m) by primary weapon: approach beyond max, back off inside min, else strafe. */
   v1Band: { lightning: [8, 32], laser: [60, 190], mortar: [60, 190], gunWithLightning: [15, 90], gun: [55, 125] } as Record<string, [number, number]>,
   /** Keep the fight going this long (s) after losing sight of the target: duck, reload, peek back. */
-  peekS: 4,
+  peekS: 0, // squad: off (paired sim A/B +0.18 and +0.17 without it); FFA override 4
   /** Below this target HP fraction never duck (crossfire/reload): finish it. */
   finishHp: 0.25,
   /** Search radius (m) for a spot with a clear shot when the target ducks out of sight. */
@@ -95,7 +95,7 @@ export const P = {
   /** Retreat to cover when at least this many enemies have a clear line to us. */
   crossfireN: 2,
   /** Overrides applied once FFA (the final's format) is detected: avoid fights, hide and heal. */
-  ffaOverrides: { healHp: 0.9 } as Record<string, unknown>,
+  ffaOverrides: { healHp: 0.9, peekS: 4, duckReloadS: 0.7 } as Record<string, unknown>,
   /** Seek remembered NPC drones (2 cubes each) within this range (m) when healthy and idle. 0 = off. */
   npcSeekRange: 0,
   /** Idle (no threat, no sound): spin the torso this far ahead each decision (rad; 0 = sweep around the move direction). */
