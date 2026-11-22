@@ -35,4 +35,49 @@ export const P = {
   zoneMarginMax: 40,
   /** FFA detector: deaths not caused by us beyond this slack switch to FFA mode. */
   ffaSlack: 1,
+
+  // ---------------- v1 (map-aware) parameters
+  /** Map model on/off (off = v1 logic with straight-line movement and no LOS gates). */
+  useWorld: true,
+  /** Jink timing in fights (house bots apply ~75% lead; flips every 0.3-0.5 s beat it). */
+  fightJinkMin: 0.3,
+  fightJinkRand: 0.35,
+  /** Preferred fight range (m) by primary weapon, v1. */
+  v1Range: { lightning: 22, laser: 115, mortar: 120, gunWithLightning: 35, gun: 95 },
+  /** Retreat to cover below this HP fraction unless the target is weaker by retreatMargin. */
+  v1RetreatHp: 0.4,
+  /** Heal (hide and regen) when no target is visible and HP fraction is below this. */
+  healHp: 0.9,
+  /** Stop healing at this HP fraction. */
+  healDoneHp: 0.985,
+  /** Fight near a cover point: max cover search radius and the leash to it while fighting (m). */
+  coverSearch: 24,
+  coverLeash: 13,
+  /** Duck to cover when an enemy laser charging at us is visible and cover is this close (m). */
+  duckLaserDist: 14,
+  /** Duck when all our weapons are unavailable for at least this long (s). */
+  duckReloadS: 0.7,
+  /** Retreat/heal cover search radius (m). */
+  retreatSearch: 50,
+  /** Remember enemies for heal/cover decisions this long (s). */
+  threatMemory: 12,
+  /** FFA: engage only targets that attack us, are weak (< this HP fraction) or close (< ffaCloseRange). */
+  ffaWeakHp: 0.45,
+  ffaCloseRange: 45,
+  /** Climb energy per meter = jet_drain / effective rise speed (8.9 m/s) */
+  jetRiseSpeed: 8.9,
+  /** Fight range band [min, max] (m) by primary weapon: approach beyond max, back off inside min, else strafe. */
+  v1Band: { lightning: [8, 32], laser: [60, 190], mortar: [60, 190], gunWithLightning: [15, 90], gun: [55, 125] } as Record<string, [number, number]>,
+  /** Keep the fight going this long (s) after losing sight of the target: duck, reload, peek back. */
+  peekS: 4,
+  /** Chase a wounded enemy (HP fraction below pursueHp) seen within pursueS seconds if we have pursueMinHp. */
+  pursueHp: 0.35,
+  pursueMinHp: 0.45,
+  pursueS: 10,
+  /** Retreat to cover when at least this many enemies have a clear line to us. */
+  crossfireN: 2,
+  /** Soft per-tick compute budget (ms) for optional work (replans, cover searches). */
+  tickBudgetMs: 12,
+  /** Draw the path and cover point (debug, team only). */
+  debugDraw: true,
 }

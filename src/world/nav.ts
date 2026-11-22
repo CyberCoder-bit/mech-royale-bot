@@ -555,7 +555,7 @@ export class Pathfinder {
         break
       }
       expanded++
-      if ((expanded & 1023) === 0 && (performance.now() - t0 > maxMs || expanded > maxExpand)) {
+      if ((expanded & 255) === 0 && (performance.now() - t0 > maxMs || expanded > maxExpand)) {
         timedOut = true
         break
       }

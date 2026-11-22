@@ -28,7 +28,7 @@ export type FollowOut = {
   state: string
 }
 
-type Goal = { x: number; y: number; z: number; tol: number }
+type Goal = { x: number; y: number; z: number; tol: number; climbCap: number }
 
 export class PathFollower {
   nav: NavGrid
@@ -48,6 +48,7 @@ export class PathFollower {
   private climbIdx = -1
   private climbStartT = -1
   private waitEnergyUntil = -1
+  private lastUpdateT = -99
   /** replan at least this often (s) */
   replanEvery = 3
   /** A* time budget per plan (ms) */
@@ -73,21 +74,24 @@ export class PathFollower {
     return this.goal
   }
 
-  /** Set (or update) the goal. Replans when it moved more than `replanDist`. */
-  setGoal(x: number, y: number, z: number, tol = 2.5, replanDist = 6) {
+  /**
+   * Set (or update) the goal. Replans when it moved more than `replanDist` or the climb cap changed.
+   * `climbCap` limits jet climbs on the way (m); 0-2 keeps the path on walkable ground.
+   */
+  setGoal(x: number, y: number, z: number, tol = 2.5, replanDist = 6, climbCap = 50) {
     const g = this.goal
-    if (g && Math.hypot(g.x - x, g.y - y) < replanDist && Math.abs(g.z - z) < 4) {
+    if (g && Math.hypot(g.x - x, g.y - y) < replanDist && Math.abs(g.z - z) < 4 && g.climbCap === climbCap) {
       g.tol = tol
       return
     }
-    this.goal = { x, y, z, tol }
+    this.goal = { x, y, z, tol, climbCap }
     this.planT = -99 // force a replan
   }
 
   private plan(t: number, x: number, y: number, z: number, energy: number, climbPerM: number) {
     const g = this.goal!
     const maxClimb = Math.max(0, Math.min(this.maxClimb, (energy - 8) / climbPerM))
-    const res = this.pf.findPath(x, y, z, g.x, g.y, g.z, { maxMs: this.planMs, maxClimb: Math.max(maxClimb, 12) })
+    const res = this.pf.findPath(x, y, z, g.x, g.y, g.z, { maxMs: this.planMs, maxClimb: Math.min(g.climbCap, Math.max(maxClimb, 12)) })
     this.planT = t
     this.path = res
     this.px.length = this.py.length = this.pz.length = this.kinds.length = 0
@@ -124,7 +128,14 @@ export class PathFollower {
     if (!g) return out
     const x = inp.pos[0], y = inp.pos[1], z = inp.pos[2]
     const t = inp.t
-    const climbPerM = inp.climbEnergyPerM ?? 1.6
+    const climbPerM = inp.climbEnergyPerM ?? 1.7
+    if (t - this.lastUpdateT > 0.5) {
+      // not driven for a while (strafing, idle): restart progress tracking
+      this.lastProgressT = t
+      this.progressPos = [x, y, z]
+      this.stuckLevel = 0
+    }
+    this.lastUpdateT = t
     const dGoal = Math.hypot(g.x - x, g.y - y)
     if (dGoal <= g.tol && Math.abs(g.z - z) < 3) {
       out.arrived = true
