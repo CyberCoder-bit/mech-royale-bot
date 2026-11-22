@@ -69,7 +69,7 @@ const SIM_EXTRAS: Record<string, Partial<Archetype>> = {
     preferred_range_m: 75, retreat_hp_frac: 0.35, strafe: 0.35, boost_frac: 0.08,
     loot_weapon_first: true, weapon_pref: ["laser", "lightning", "mortar"], farm_cubes: true,
     upgrade_pref: ["armor", "gun_rate", "plating", "nanites", "laser_damage", "gyros"],
-    engage_range_m: 120, use_drops: true, camp: 0.6,
+    engage_range_m: 120, use_drops: true, camp: 0.75,
   },
   thirdparty: { third_party: true, aggression: 0.4 },
   farmer: { aggression: 0.3, use_drops: true },
@@ -387,7 +387,9 @@ export class HouseAgent implements Agent {
         let pref = A.preferred_range_m
         const hasL = s.weapons.some((w) => w && w.kind === "lightning")
         if (hasL && A.weapon_pref[0] === "lightning") pref = Math.min(pref, 30)
-        if (d > pref + 12) goal = [target.x, target.y]
+        const camper = (A.camp ?? 0) > 0 && !(dir && dir.hunt)
+        if (camper && d <= A.fire_range_m.gun && d >= Math.min(pref, 40) - 12) goal = null // campers fight from where they stand
+        else if (d > pref + 12) goal = [target.x, target.y]
         else if (d < pref - 12) goal = [x - Math.cos(toT) * 20, y - Math.sin(toT) * 20]
         else goal = null
       }
