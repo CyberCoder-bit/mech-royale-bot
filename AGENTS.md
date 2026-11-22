@@ -197,7 +197,7 @@ Practice returns one noisy number per submission, at most 6 per hour, with no st
   - **M1:** world model (terrain, prisms, LOS, nav) and solid combat: leading, weapon use, rear-armor facing, dodging, disengage-to-regen.
   - **M2:** the simulator, calibrated.
   - **M3:** iterate with the sim and use the submission slots every hour.
-  - **Final entry is a MANUAL PICK (since Sun 00:00):** BB-73B66656 = cc24133 (v2 + FFA brain, 4.63). A higher-scoring submission does NOT replace a pick automatically. After any new best that contains the FFA brain, click "Pick as our final entry" on it. Before 10:45 verify the pick is the intended FFA-capable version.
+  - **Final entry is a MANUAL PICK (since Sun 00:00):** BB-5F7D63F5 = 1a98685 = tag v3 (v2 + FFA brain + cubeGrab, 5.04). A higher-scoring submission does NOT replace a pick automatically. After any new best that contains the FFA brain, click "Pick as our final entry" on it. Before 10:45 verify the pick is the intended FFA-capable version.
   - **Freeze:** no risky changes after about 09:30 EST Sunday. Make the final submission by about 10:30 EST, and make sure the chosen submission is the one you intend (by default, the best one).
 - Seeds are fixed, so a deterministic bot rescored gives nearly the same practice number. Differences between versions are real *for those 48 seeds*, which means overfitting is possible. Prefer changes that also improve sim `ffa`.
 

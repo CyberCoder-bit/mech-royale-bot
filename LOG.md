@@ -24,3 +24,4 @@
 | 00:00 | v2+ffa cc24133 | official result | – | – | **4.63** (= v2, squad unchanged). PICKED as final entry (BB-73B66656) because it has FFA mode. Re-pick manually if a better FFA-capable version scores higher. |
 | 00:09 | roof fortress (branch worktree-agent-a4e7c3aeadebf310e) | climb a roof and fight from it | −1.29 ± 0.35 (default), −1.31 (HK0); refuge variant +0.17 ± 0.24 (noise) | – | rejected: survives 2× longer but kills fewer, no kill cubes |
 | 00:11 | sq 1a98685 | v2+ffa merge + cubeGrab 30 | +0.28 ± 0.17 (96, default); HK0 +0.50 ± 0.16 | ffa 9.56 vs 9.25 (48) | pending |
+| 00:14 | sq 1a98685 | official result | sim +0.28 / HK0 +0.50 | – | **5.04** NEW BEST; PICKED as final entry (BB-5F7D63F5, has FFA brain) |
