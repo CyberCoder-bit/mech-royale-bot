@@ -135,6 +135,39 @@ for (const s of spots)
   console.log(
     `  (${s.x.toFixed(0)}, ${s.y.toFixed(0)}, z ${s.z.toFixed(1)}) exp ${f2(s.exposure)} near ${f2(s.near)} cover ${s.cover.toString(2).padStart(8, "0")}  ${label(s.x, s.y)}`,
   );
+// areas: mean score over walkable cells in a 5x5 (20 m) window with room to move (>= 12 cells)
+const score = (q: number) => (0.65 * gExp[q] + 0.35 * gNear[q]) / 255;
+const ok = (q: number) => (M.flags[q] & (FLAG_GROUND | FLAG_WALK | 128)) === (FLAG_GROUND | FLAG_WALK);
+const areas: { q: number; s: number; e: number; n: number }[] = [];
+for (let j = 2; j < M.ny - 2; j++)
+  for (let i = 2; i < M.nx - 2; i++) {
+    const q = j * M.nx + i;
+    if (!ok(q)) continue;
+    let s = 0, e = 0, c = 0;
+    for (let dj = -2; dj <= 2; dj++)
+      for (let di = -2; di <= 2; di++) {
+        const r = q + dj * M.nx + di;
+        if (!ok(r)) continue;
+        s += score(r);
+        e += gExp[r] / 255;
+        c++;
+      }
+    if (c >= 12) areas.push({ q, s: s / c, e: e / c, n: c });
+  }
+areas.sort((a, b) => a.s - b.s);
+const picked: typeof areas = [];
+for (const a of areas) {
+  if (picked.length >= K) break;
+  const [x, y] = M.cellCenter(a.q);
+  if (picked.some((p) => Math.hypot(M.cellCenter(p.q)[0] - x, M.cellCenter(p.q)[1] - y) < spacing)) continue;
+  picked.push(a);
+}
+console.log(`\nbest ${K} hiding AREAS (20 m window, >= 12 walkable cells, >= ${spacing} m apart):`);
+for (const a of picked) {
+  const [x, y] = M.cellCenter(a.q);
+  console.log(`  (${x.toFixed(0)}, ${y.toFixed(0)}) mean exp ${f2(a.e)} (score ${f2(a.s)}, ${a.n} cells)  ${label(x, y)}`);
+}
+
 const t0 = performance.now();
 for (let r = 0; r < 20; r++) M.bestSpots([40, -70], 240, 8, { avoid: [[0, 0]] });
 console.log(`bestSpots(r=240, k=8) ${((performance.now() - t0) / 20).toFixed(2)} ms/call`);

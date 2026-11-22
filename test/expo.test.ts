@@ -129,6 +129,52 @@ describe("lookups", () => {
   });
 });
 
+describe("precompute geometry (synthetic world)", () => {
+  // flat terrain at z=0, a 20x20 m box 15 m tall at x,y in [0,20], a walk-under bridge, one big tree
+  const nx = 201, ny = 201;
+  const terrain = new Int16Array(nx * ny).buffer;
+  const world = {
+    bounds: { minX: -100, maxX: 100, minY: -100, maxY: 100 },
+    rules: { canopyDensity: 0.35, canopyBlockT: 0.25 },
+    terrain: { minX: -100, minY: -100, step: 1, nx, ny, scale: 0.01 },
+    prisms: [
+      { kind: "building", base: -2, top: 15, ring: [0, 0, 20, 0, 20, 20, 0, 20], holes: [] },
+      { kind: "bridge", base: 10, top: 11, ring: [-60, -10, -40, -10, -40, 10, -60, 10], holes: [] },
+    ],
+    trees: {
+      fields: ["x", "y", "z", "height", "crownR", "crownBase", "trunkR", "osm", "crownX", "crownY"],
+      data: [-20, 60, 0, 14, 4, 4, 0.4, 0, -20, 60],
+    },
+  };
+  const S = new (W.constructor as any)(world, terrain) as typeof W;
+
+  test("buildings block, rays over them do not, ends touching a wall do not self-occlude", () => {
+    expect(S.los(-30, 10, 8, 50, 10, 4.5, true)).toBe(false); // straight through the box
+    expect(S.los(-30, 10, 30, 50, 10, 25, true)).toBe(true); // above its 15 m roof
+    expect(S.los(-30, 30, 8, 50, 30, 4.5, true)).toBe(true); // passes north of it
+    expect(S.los(-30, 0, 8, 0, 0, 4.5, true)).toBe(true); // target exactly on a corner
+  });
+
+  test("columns: building -> roof only, walk-under bridge -> ground + deck", () => {
+    const b = S.column(10, 10);
+    expect(Number.isNaN(b.ground)).toBe(true);
+    expect(b.roof).toBe(15);
+    const br = S.column(-50, 0);
+    expect(br.ground).toBe(0);
+    expect(br.overhead).toBe(true);
+    expect(br.roof).toBe(11);
+    expect(S.column(-80, -80).ground).toBe(0);
+  });
+
+  test("canopy blocks long chords only beyond near range; trunks block far rays", () => {
+    // crown: centre (-20, 60, 9), radius 4 horizontal, 5 vertical
+    expect(S.los(-80, 60, 9, 40, 60, 9, false)).toBe(false); // 8 m of crown, far rules
+    expect(S.los(-80, 60, 9, 40, 60, 9, true)).toBe(true); // proximity rules ignore trees
+    expect(S.los(-80, 63.8, 9, 40, 63.8, 9, false)).toBe(true); // grazes the edge: ~2.5 m of crown (< 3.96 m blocking chord)
+    expect(S.los(-80, 60, 2, 40, 60, 2, false)).toBe(false); // below the crown: trunk
+  });
+});
+
 describe("vision model vs the recorded server stream", () => {
   test("ground heights match and sight transitions agree with LOS + 5 s memory", async () => {
     const { gunzipSync } = await import("zlib");
