@@ -28,7 +28,7 @@ export const P = {
   farmNpcHp: 0.7,
   farmRange: 70,
   lootCubeRange: 70,
-  lootWeaponRange: 90,
+  lootWeaponRange: 130,
   /** Zone: aim to be inside the next circle by margin = clamp(r * frac, min, max). */
   zoneMarginFrac: 0.25,
   zoneMarginMin: 6,
@@ -74,7 +74,7 @@ export const P = {
   tgtFocus: 2,
   /** Preferred range (m) vs passive (non-attacking) targets: with lightning / gun only; 0 = same as attackers. */
   passiveRangeL: 22,
-  passiveRangeG: 35,
+  passiveRangeG: 20,
   /** Loot memory: remembered weapon pickups within this range (m) while slot 1 is empty (0 = off: visible only). */
   lootMemRange: 320,
   /** ...in FFA mode (detected): long trips across a map full of campers are risky. */
@@ -111,7 +111,7 @@ export const P = {
   dodgeMortar: true,
   dodgeMargin: 4,
   /** Approach detector: a mech walking straight at us this long (s) counts as a threat (0 = off). */
-  approachS: 3,
+  approachS: 0,
   /** JIT warm-up of the world/nav code at hello (ms of wall time, 0 = off). */
   warmMs: 0,
   /** Cold-start guard: skip loading the map / nav / warm-up once the process is this old (ms since start). */
