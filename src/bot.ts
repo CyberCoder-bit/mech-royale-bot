@@ -8,7 +8,7 @@ import { angDiff, clamp, dist2, dist3, rng, unit, yawTo, type V2, type V3 } from
 
 export type Profile = "fighter" | "pacifist"
 /** Build profile. "pacifist" is a probe build: never fires, avoids enemies. */
-export const PROFILE: Profile = "fighter"
+export const PROFILE: Profile = "pacifist"
 
 /** Slot-1 weapon preference, best first. */
 const WEAPON_PREF: WeaponKind[] = ["laser", "lightning", "mortar"]
