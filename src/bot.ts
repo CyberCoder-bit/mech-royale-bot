@@ -156,6 +156,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   let duckUntil = -1
   let xfPt: V3 | null = null
   let xfUntil = -1
+  let fbOn = false
   const pickMem = new Map<number, { kind: WeaponKind; pos: V3; t: number }>()
   let soundPt: { x: number; y: number; t: number } | null = null
   let mode = "idle"
@@ -562,7 +563,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
       const now = t
       if (now - jinkUntil > 0) {
         jinkSign = -jinkSign
-        jinkUntil = now + PRM.jinkMin + rand() * PRM.jinkRand
+        jinkUntil = sq ? now + PRM.jinkMin + rand() * PRM.jinkRand : now + PRM.ffaJinkMin + rand() * PRM.ffaJinkRand
       }
       const zonePull: V2 = needZone ? unit(zoneYaw) : [0, 0]
       const goPath = (gx: number, gy: number, gz: number, tol = 2.5): V2 | null => {
@@ -582,7 +583,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         const ef = (target.hp ?? 1400) / Math.max(1, target.max_hp ?? 1400)
         const toT = unit(ty)
         const perp: V2 = [-toT[1] * jinkSign, toT[0] * jinkSign]
-        const retreat = profile === "pacifist" || (hpFrac < PRM.retreatHp && (ef > hpFrac + PRM.retreatMargin || engagedBy > 1))
+        const retreat = profile === "pacifist" || (hpFrac < (sq ? PRM.retreatHp : PRM.ffaRetreatHp) && (ef > hpFrac + PRM.retreatMargin || engagedBy > 1))
         if (retreat) {
           mode = "retreat"
           move = norm2([-toT[0] + perp[0] * 0.6 + zonePull[0] * 1.2, -toT[1] + perp[1] * 0.6 + zonePull[1] * 1.2])
@@ -615,6 +616,13 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           if (earlySafe && tgtTrack && !isThreat(tgtTrack) && radial > 0) radial = 0
           move = norm2([toT[0] * radial + perp[0] + zonePull[0] * 1.5, toT[1] * radial + perp[1] + zonePull[1] * 1.5])
           boost = outside && me.energy > 30
+          // squad evasion: strafe at boost speed while a threat has a line on us (keep energy for lightning up close)
+          if (PRM.fightBoostE > 0 && sq && !boost) {
+            const keep = lightW && tDist < 70 ? 40 : 0
+            if (me.energy >= PRM.fightBoostE + keep) fbOn = true
+            else if (me.energy < PRM.fightBoostLo + keep) fbOn = false
+            if (fbOn && (t - lastHurtT < 2 || (losNow && !!tgtTrack && isThreat(tgtTrack)))) boost = true
+          }
           // grab cubes lying close by while fighting (kill drops: +HP, +damage)
           if (PRM.cubeGrab > 0 && me.cubes < 30) {
             let bc: ArrayLike<number> | null = null, bd = PRM.cubeGrab
@@ -824,6 +832,14 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         if (n > 0 && (ax !== 0 || ay !== 0)) {
           mode = "dodge"
           move = norm2([ax, ay])
+          // squad: run across the target's line, not along it (a straight radial run is easy to lead)
+          if (PRM.dodgeLateral && sq && target) {
+            const tl = unit(yawTo(P, target.pos))
+            const px = -tl[1], py = tl[0]
+            const side = move[0] * px + move[1] * py
+            const sd = Math.abs(side) > 0.15 ? Math.sign(side) : jinkSign
+            move = norm2([px * sd + move[0] * 0.35, py * sd + move[1] * 0.35])
+          }
           boost = me.energy > 5
           jump = false
         }

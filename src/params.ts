@@ -16,14 +16,26 @@ export const P = {
     "lightning_range", "gyros", "gun_velocity", "gun_mag", "servos", "sensors", "mortar_reload", "mortar_velocity",
     "mortar_splash", "lightning_chain", "laser_pierce", "reactor", "capacitor", "jets",
   ],
-  /** Retreat when HP fraction is below this and the target is healthier (by retreatMargin) or we face several enemies. */
-  retreatHp: 0.35,
+  /**
+   * Retreat when HP fraction is below this and the target is healthier (by retreatMargin) or we face several enemies.
+   * Squad 0 (never: 78% of sim deaths came in retreat mode, on straight lines away from the shooter that need no lead);
+   * FFA mode keeps ffaRetreatHp (the v3 value).
+   */
+  retreatHp: 0,
+  ffaRetreatHp: 0.35,
   retreatMargin: 0.1,
   /** Preferred fighting distance (m) by primary weapon. */
   prefRange: { lightning: 20, laser: 110, mortar: 120, gunWithLightning: 30, gun: 70 },
-  /** Jink: flip strafe direction every jinkMin + rand*jinkRand seconds. */
-  jinkMin: 0.45,
-  jinkRand: 0.8,
+  /** Jink: flip strafe direction every jinkMin + rand*jinkRand seconds (squad; FFA mode keeps the v3 0.45 + 0.8). */
+  jinkMin: 0.3,
+  jinkRand: 0.5,
+  ffaJinkMin: 0.45,
+  ffaJinkRand: 0.8,
+  /** Squad evasion: boost while strafing in a fight once energy reaches fightBoostE, until it drops below fightBoostLo (0 = off). */
+  fightBoostE: 60,
+  fightBoostLo: 30,
+  /** Squad mortar dodge: escape across the line to our target instead of straight away from the impact. */
+  dodgeLateral: true,
   /** Farm NPC drones only above this HP fraction; farm/loot search ranges (m). */
   farmNpcHp: 0.7,
   farmRange: 70,
