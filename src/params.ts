@@ -135,7 +135,7 @@ export const P = {
    */
   earlySafeT: 15,
   /** Salt mixed into the bot's RNG seed (0 = unchanged). Variants with different salts play the same strategy with different random choices. */
-  rngSalt: 2,
+  rngSalt: 3,
   earlySafeFinish: true,
 }
 
