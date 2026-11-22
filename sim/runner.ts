@@ -24,6 +24,8 @@ export interface MatchSpec {
   stderrDir?: string | null
   /** fixed slot for the test bot (default: random per seed) */
   testSlot?: number
+  /** keep simulating after the test bot died (default false: its place is final, so stop) */
+  full?: boolean
   config?: Config
 }
 
@@ -163,17 +165,20 @@ export async function runMatch(spec: MatchSpec): Promise<MatchResult> {
       match.applyAction(m, x.a, x.valid)
     }
     match.advance()
+    if (!spec.full && !match.over && !match.mechs[testSlot].alive) break
   }
-  for (const m of match.mechs) if (!ended.has(m.id)) agents[m.id].end(m.place, m.stats.kills)
+  const stopped = !match.over
+  for (const m of match.mechs) if (!ended.has(m.id)) agents[m.id].end(m.alive && stopped ? 0 : m.place, m.stats.kills)
   for (const p of procs) setTimeout(() => p.kill(), 2500).unref?.()
   ansMs.sort((a, b) => a - b)
   const res = match.result()
+  // stopped early: mechs still alive have no final place (null)
   const mk = (m: Mech): MechResult => ({
     slot: m.id,
     name: m.name,
     spec: specName(specs[m.id]),
-    place: m.place,
-    points: N - m.place,
+    place: m.alive && stopped ? (null as any) : m.place,
+    points: m.alive && stopped ? (null as any) : N - m.place,
     deathT: m.deathT === null ? null : Math.round(m.deathT * 100) / 100,
     kills: m.stats.kills,
     cause: m.alive ? null : m.killedWith,
@@ -200,6 +205,11 @@ export async function runMatch(spec: MatchSpec): Promise<MatchResult> {
     field: match.mechs.filter((m) => m.id !== testSlot).map(mk),
   }
   if (spec.replay) {
+    if (stopped && match.frames.length > 1) {
+      // stopped at the test bot's death: close the replay with an end event (alive mechs: place 0 = unresolved)
+      const last = match.frames[match.frames.length - 1]
+      ;(last.ev ??= []).push({ t: match.tick, e: "end", tick: match.tick, places: match.mechs.map((m) => (m.alive ? 0 : m.place)) })
+    }
     const hdr = match.frames[0]
     hdr.bots = specs.map(specName)
     hdr.mechs.forEach((x: any, i: number) => (x.name = match.mechs[i].name.slice(0, 32)))

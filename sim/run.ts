@@ -4,6 +4,7 @@
  *   bun sim/run.ts --mode ffa --seeds 48 --bot "bun src/main.ts" --field "inproc:src/bot.ts*4,house:expert*6,house:sniper*3,house:brawler*3"
  *   bun sim/run.ts --mode squad --seeds 48 --bot inproc:src/bot.ts
  *   bun sim/run.ts --compare runs/a.json runs/b.json
+ * Matches stop when the test bot dies (its place is final); --full simulates to the end (field stats, full replays).
  * Extra: --squad "t_all=330,hunters_know_position=1,base_hunters=1,nonhunter_engage_m=60" --house "aim_mul=1,react_mul=1,lead_mul=1"
  *        --budget-ms 50 --stderr runs/logs --name label --quiet
  */
@@ -89,8 +90,8 @@ export function summarize(results: MatchResult[]) {
     for (const f of r.field) {
       const e = (field[f.spec] ??= { n: 0, pts: [], deaths: {} })
       e.n++
-      e.pts.push(f.points)
-      const c = f.cause === null ? "survived" : f.killedBy === null ? f.cause : f.killedBy.startsWith("house:") ? `${f.cause}(house)` : `${f.cause}(test/other)`
+      if (f.points !== null) e.pts.push(f.points)
+      const c = f.place === null ? "alive@test-death" : f.cause === null ? "survived" : f.killedBy === null ? f.cause : f.killedBy.startsWith("house:") ? `${f.cause}(house)` : `${f.cause}(test/other)`
       e.deaths[c] = (e.deaths[c] ?? 0) + 1
     }
   return {
@@ -182,7 +183,7 @@ async function main() {
   const specs: MatchSpec[] = []
   for (let i = 0; i < nSeeds; i++) {
     const seed = seedStart + i
-    specs.push({ seed, mode, test, field, squad, house, replay: replayDir ? join(replayDir, `${label}_seed${seed}.jsonl.gz`) : null, budgetMs: o["budget-ms"] ? parseFloat(o["budget-ms"] as string) : undefined, stderrDir })
+    specs.push({ seed, mode, test, field, squad, house, full: !!o.full, replay: replayDir ? join(replayDir, `${label}_seed${seed}.jsonl.gz`) : null, budgetMs: o["budget-ms"] ? parseFloat(o["budget-ms"] as string) : undefined, stderrDir })
   }
   const t0 = performance.now()
   const results: MatchResult[] = []
