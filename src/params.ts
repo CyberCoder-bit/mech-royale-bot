@@ -189,6 +189,9 @@ export const P = {
    */
   earlyProbe: false,
   probeS: 2.5,
+  /** Passive squad proof (no shots needed): a never-hostile mech facing us over a clear line within probeD m for probeS s. */
+  probePassive: false,
+  probeD: 100,
   /**
    * Early safety posture (0 = off): before this match time, and while no FFA is detected, don't close
    * in on non-attacking mechs (no chase, no approach, no hunting); attackers are still fought, loot and

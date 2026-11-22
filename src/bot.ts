@@ -160,6 +160,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   let fbOn = false
   let squadProof = false
   const probeHit = new Map<number, number>()
+  const peaceT = new Map<number, number>()
   const pickMem = new Map<number, { kind: WeaponKind; pos: V3; t: number }>()
   let soundPt: { x: number; y: number; t: number } | null = null
   let mode = "idle"
@@ -300,6 +301,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           if (sp > 5 && cosA > 0.8 && dd > 30) tr.appT += dt
           else tr.appT = Math.max(0, tr.appT - 2 * dt)
         }
+        const dtL = clamp(t - tr.lastListed, 0, 0.3)
         tr.pos = [m.pos[0], m.pos[1], m.pos[2]]
         tr.vel = [m.vel[0], m.vel[1], m.vel[2]]
         tr.hp = m.hp ?? tr.hp
@@ -312,6 +314,12 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         const top: V3 = [c[0], c[1], m.pos[2] + 8.5 * (1 + sizePerCube * (m.cubes ?? 0))]
         tr.los = !world || world.shotClear(muzzle, c) || world.shotClear(muzzle, top)
         if (tr.los) tr.lastLos = t
+        // passive squad proof: a mech facing us over a clear line, close enough to hit, holding fire for probeS s
+        if (PRM.probePassive && !squadProof && sq && t < PRM.earlySafeT && tr.lastAttack < 0 && tr.los && dist2(P, m.pos) < PRM.probeD && Math.abs(angDiff(m.aim[0], yawTo(m.pos, P))) < 1.0) {
+          const pt = (peaceT.get(m.id) ?? 0) + dtL
+          peaceT.set(m.id, pt)
+          if (pt >= PRM.probeS) squadProof = true
+        }
       }
       for (const [id, tr] of tracks) if (t - tr.lastListed > PRM.huntMemS && t - tr.lastAttack > PRM.huntMemS) tracks.delete(id)
       const isAttacker = (tr: Track) => t - tr.lastAttack < PRM.attackerS
