@@ -18,3 +18,4 @@
 | 23:28 | sim: v2 upgrade order | damage-first / mixed (gun_rate early) vs survival-first | base 4.42 ± 0.31; dmg +0.08 ± 0.36; mix +0.15 ± 0.34 | – | not submitted (noise) |
 | 23:30 | sim: v2 death analysis | mean death 80 s, none past 3:00; killed by easy 30/48; 3.6 kills/min alive | → lever = survival per kill | – | – |
 | 23:31 | core world perf d1e337f | allocation-free LOS, nav.bin.gz precompute, A* cap 8000, warm-up | v2+new world 4.60 vs 4.44 (+0.17 ± 0.16) | – | not submitted (folded into next sq candidate) |
+| 23:38 | sim recalibration (branch sim-cal-v1, ef6cc5f) | search-model hunters (config B) | ex 1.29, pac 0.00, v0 3.40, v1 3.79, sq 4.92 vs official 1.15/0.08/3.38/3.00/4.63 | – | lesson: sim over-rates defensive tactics by ~0.5–0.8; not adopted as default |

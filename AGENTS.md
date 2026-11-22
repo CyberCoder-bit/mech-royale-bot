@@ -161,7 +161,7 @@ Practice returns one noisy number per submission, at most 6 per hour, with no st
    - `ffa`: our own past versions plus simple archetypes (camper, rusher, sniper) that also fight each other, to imitate the final.
 4. **Calibrate:** the kit's Python example should score about 1.15 in `squad` mode. If it doesn't, tune house-bot strength before trusting any numbers.
 5. **Batch runner:** a fixed seed list, versions A/B compared on the same seeds (paired). Report mean `16 - place`, its standard error, survival time, kills, and death causes (zone, weapon, rear hits). Run matches in parallel across cores locally (this machine has 24 CPUs; the bot itself still gets only 1).
-6. **Sim numbers are guidance, not truth.** If the bot and the sim share world code (LOS, terrain), a bug in it stays invisible to the sim. Validate the sim with `kit/check/stream.jsonl.gz` (hello plus 300 real observations): grounded `self.pos.z` should match terrain or roof height, observed speeds should match the config limits, and visible mechs should pass our LOS test.
+6. **Sim numbers are guidance, not truth.** Measured Sat 23:40: the calibrated sim tracks AGGRESSIVE tactics well (v2: sim 4.7, official 4.63) but over-rates DEFENSIVE ones (hiding, holding cover, peeking) by ~0.5–0.8 points (core v1: sim +0.8 over v0, official −0.38). Validate defensive gains on the real scorer. If the bot and the sim share world code (LOS, terrain), a bug in it stays invisible to the sim. Validate the sim with `kit/check/stream.jsonl.gz` (hello plus 300 real observations): grounded `self.pos.z` should match terrain or roof height, observed speeds should match the config limits, and visible mechs should pass our LOS test.
 
 ## 7. Bot architecture guidelines
 
