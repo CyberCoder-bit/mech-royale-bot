@@ -170,7 +170,8 @@ async function main() {
   let field: AgentSpec[]
   if (o.field) field = parseField(o.field as string)
   else if (mode === "squad") field = parseField("house:easy*4,house:medium*4,house:hard*4,house:expert*3")
-  else field = parseField("house:expert*6,house:sniper*3,house:brawler*3,house:thirdparty*2,house:farmer*1")
+  // final imitation: mostly other teams' bots (sim archetype `top`), expert house bots fill the rest
+  else field = parseField("house:top*8,house:expert*4,house:brawler*1,house:sniper*1,house:thirdparty*1")
   const squad = parseSquad(o.squad as string | undefined)
   const house = parseSquad(o.house as string | undefined) as Record<string, number>
   const replayDir = o.replay ? String(o.replay) : null

@@ -570,8 +570,21 @@ export class Match {
       const i = Math.floor(a.pick)
       if (i >= 0 && i < m.offer.choices.length) this.applyUpgrade(m, m.offer.choices[i])
     }
-    if (typeof a.take === "number") this.doTake(m, a.take, typeof a.drop === "number" ? a.drop : undefined)
+    if (typeof a.take === "number") this.pendingTakes.push({ m, id: a.take, drop: typeof a.drop === "number" ? a.drop : undefined })
     else if (typeof a.drop === "number") this.doDrop(m, a.drop)
+  }
+
+  /** same-tick takes of one pickup: the closest mech gets it (others see `gone`) */
+  private pendingTakes: { m: Mech; id: number; drop?: number }[] = []
+  private resolveTakes() {
+    if (!this.pendingTakes.length) return
+    const dist = (r: { m: Mech; id: number }) => {
+      const p = this.pickups.find((q) => q.id === r.id)
+      return p ? Math.hypot(p.x - r.m.x, p.y - r.m.y) : Infinity
+    }
+    const reqs = this.pendingTakes.map((r) => ({ ...r, d: dist(r) })).sort((a, b) => a.d - b.d || a.m.id - b.m.id)
+    this.pendingTakes = []
+    for (const r of reqs) if (r.m.alive) this.doTake(r.m, r.id, r.drop)
   }
 
   private startReload(m: Mech, w: Weapon) {
@@ -809,6 +822,7 @@ export class Match {
   // ------------------------------------------------------------------ simulation
   /** advance `decide_every` ticks */
   advance() {
+    this.resolveTakes()
     const n = this.cfg.match.decide_every ?? 2
     for (let i = 0; i < n && !this.over; i++) this.step()
   }
