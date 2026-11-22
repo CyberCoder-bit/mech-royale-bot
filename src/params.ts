@@ -94,6 +94,10 @@ export const P = {
   crossfireN: 2,
   /** Overrides applied once FFA (the final's format) is detected: avoid fights, hide and heal. */
   ffaOverrides: { healHp: 0.9 } as Record<string, unknown>,
+  /** Pre-charge the laser when an enemy was seen within 1.5 s inside this range (m), for a full first shot. 0 = off. */
+  preChargeRange: 0,
+  /** Dodge a mortar shell whose predicted impact is within splash radius + this margin (m). */
+  shellMargin: 3,
   /** Wall-time cap (ms) of the JIT warm-up at hello (synthetic decisions). */
   warmMs: 700,
   /** Soft per-tick compute budget (ms) for optional work (replans, cover searches), and the A* cap per plan. */
