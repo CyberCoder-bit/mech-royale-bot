@@ -32,3 +32,5 @@
 | 23:51 | sq d1c21ac | merge ffa-on-v2 (FFA brain hook, squad unchanged) | (identity check pending) | – | – |
 | 00:44 | ffa-detect 4e4a9c4 | first clean death takeover (median 20 s vs 25.8 s) | squad +0.08 ± 0.07 (no takeovers in 192) | ffa −0.07 ± 0.41 vs v3 | not shipped: early FFA deaths come from v3's own early fights |
 | 00:58 | SCORER RESET | all earlier Mech Royale scores now 'Scored under a previous version'; board shows 2 teams; baseline 1.15 → 1.13; kit + protocol unchanged; final pick cleared | – | – | resubmitting v3 (BB-CE149C78) |
+| 01:02 | v3 1a98685 (new scorer) | resubmitted after the reset | – | – | **5.10** (was 5.04); board top 5.96, we're ~#10 of 18 (team 'Carmel High School'?) |
+| 01:03 | earlysafe bd23fa7 | v3 + earlySafeT 15 (no fights with healthy passives in first 15 s) | 192 seeds: −0.03 ± 0.18 default, −0.29 ± 0.16 HK0 | ffa +1.07 ± 0.35 | pending (new scorer) |
