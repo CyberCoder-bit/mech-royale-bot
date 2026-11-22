@@ -370,7 +370,12 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
       const tgtTrack = target ? tracks.get(target.id)! : null
       // Farming targets when no enemy mech is around (not while healing: dealing damage resets regen).
       let farm: { pos: V3; id: number; kind: "npc" | "crate" } | null = null
-      if (!target && profile === "fighter" && !healing) {
+      // A drone that is shooting us is always fair game (350 HP, 2 cubes; ignoring it costs 25 per hit).
+      let npcAtk: ActorObs | null = null
+      if (PRM.npcDefend && !target && profile === "fighter")
+        for (const n of npcs) if (t - (tracks.get(n.id)?.lastAttack ?? -99) < 3 && dist3(P, n.pos) < 90) npcAtk = n
+      if (npcAtk) farm = { pos: centerOf(npcAtk), id: npcAtk.id, kind: "npc" }
+      else if (!target && profile === "fighter" && !healing) {
         let best = Infinity
         if (hpFrac > PRM.farmNpcHp)
           for (const n of npcs) {
@@ -645,7 +650,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
             let bd = Infinity
             let hg: V3 | null = null
             for (const tr of tracks.values()) {
-              if (tr.listed) continue
+              if (tr.listed || (PRM.npcDefend && tr.id >= 100)) continue // (drone tracks come only from damage events)
               const age = t - tr.lastListed
               const gx = tr.pos[0] + tr.vel[0] * Math.min(age, 2), gy = tr.pos[1] + tr.vel[1] * Math.min(age, 2)
               if (!safeHere([gx, gy])) continue

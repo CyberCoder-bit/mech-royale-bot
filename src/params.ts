@@ -96,6 +96,8 @@ export const P = {
   tgtRecentAtk: 0,
   /** Rear hit by an unseen attacker while shooting a non-attacker: drop it and face the shooter. */
   rearReveal: false,
+  /** Shoot back at an NPC drone that hit us in the last 3 s, at any HP (when no mech target). */
+  npcDefend: false,
   laserSwitchS: 0.12,
   /** Fight: walk over visible cubes within this range (m) while fighting (0 = off). */
   cubeGrab: 0,
