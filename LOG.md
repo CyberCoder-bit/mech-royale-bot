@@ -54,3 +54,5 @@
 | 03:06 | v3es salt 3 5529620 | bd23fa7 + rngSalt 3 (lottery ticket) | – | – | pending |
 | 03:11 | v3es salt 3 5529620 | official | – | – | **4.95** (salts 5.10/5.04/5.22/4.95: mean 5.08, sd ~0.11) |
 | 03:11 | laser-upg 967e4c2 | salt 2 + laser_damage/laser_charge first in upgradePref | – | – | pending (real A/B) |
+| 03:15 | laser-upg 967e4c2 | official | – | – | **5.01** (noise band) |
+| 03:15 | v3es salt 4 8a093b3 | bd23fa7 + rngSalt 4 | – | – | pending |
