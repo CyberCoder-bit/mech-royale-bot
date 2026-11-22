@@ -100,7 +100,7 @@ export const P = {
   npcDefend: false,
   laserSwitchS: 0.12,
   /** Fight: walk over visible cubes within this range (m) while fighting (0 = off). */
-  cubeGrab: 0,
+  cubeGrab: 30,
   /** Idle (not hunting): wait at the lowest-exposure spot within this radius (m; 0 = off), re-chosen every holdRefresh s. */
   holdR: 0,
   holdRefresh: 20,
