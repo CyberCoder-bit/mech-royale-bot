@@ -76,7 +76,7 @@ export const P = {
   passiveRangeL: 22,
   passiveRangeG: 35,
   /** Loot memory: remembered weapon pickups within this range (m) while slot 1 is empty (0 = off: visible only). */
-  lootMemRange: 320,
+  lootMemRange: 120,
   /** ...in FFA mode (detected): long trips across a map full of campers are risky. */
   ffaLootRange: 320,
   /** While slot 1 is empty and a weapon is known: ignore passive targets farther than this (m). */
