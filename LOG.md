@@ -61,3 +61,4 @@
 | 03:28 | evasion ed2ee0b | official | sim +0.38 default / +0.35 aim0.6 | ffa ≈ 0 | **5.04** (noise band): evasion doesn't transfer → hypothesis: real damage is laser-dominated (hitscan, undodgeable) |
 | 03:28 | duck10 dc11857 | salt 2 + duckR 10 (break LOS on laser charge) | sim: no help earlier | – | queued for next slot (~03:56) |
 | 03:30 | laserprio e7a4661 | salt 2 + tgtLaser 2.0 (≤220 m) + tgtCharging 3.0 | – | – | queued after duck10 |
+| 03:30 | sim diagnosis | sim damage taken: gun 69%, laser 17% (v3) vs real stream laser 76% | – | – | sim over-credits evasion; laser-heavy sim config being built + calibrated to new-scorer results |
