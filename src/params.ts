@@ -126,6 +126,14 @@ export const P = {
   revealStop: 30,
   /** Reveal: blind gun fire at the estimate (trees don't stop shots). */
   revealFire: true,
+  /**
+   * Early safety posture (0 = off): before this match time, and while no FFA is detected, don't close
+   * in on non-attacking mechs (no chase, no approach, no hunting); attackers are still fought, loot and
+   * zone logic are unchanged. With earlySafeFinish, passive mechs are engaged only when already
+   * damaged (below finishHp).
+   */
+  earlySafeT: 0,
+  earlySafeFinish: true,
 }
 
 /**

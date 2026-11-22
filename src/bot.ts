@@ -240,6 +240,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         if (ffaEvidence >= 2) ffa = true
       }
       const sq = !ffa
+      const earlySafe = PRM.earlySafeT > 0 && sq && t < PRM.earlySafeT
       // ==== FFA hook (2/2): tick() always updates its memory; it acts only after 2+ deaths we didn't cause, before 150 s ====
       const ffaAct = ffaBrain?.tick(obs, ffa)
       if (ffaAct) return ffaAct
@@ -363,6 +364,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         if (!attacker) {
           // passive (or not yet hostile) mech: engage only when we can afford it
           let allowed = !healing && (hpFrac >= PRM.engageHp || ef < PRM.finishHp || d < PRM.closeEngage)
+          if (earlySafe && PRM.earlySafeFinish && ef >= PRM.finishHp) allowed = false
           if (knownWeapon && PRM.lootFirstIgnore > 0 && d > PRM.lootFirstIgnore && e.id !== curTarget) allowed = false
           if (!allowed) continue
         }
@@ -585,7 +587,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           mode = "retreat"
           move = norm2([-toT[0] + perp[0] * 0.6 + zonePull[0] * 1.2, -toT[1] + perp[1] * 0.6 + zonePull[1] * 1.2])
           boost = me.energy > 35
-        } else if (!losNow && tgtTrack && !isThreat(tgtTrack) && follow && t - tgtTrack.lastLos > 1) {
+        } else if (!earlySafe && !losNow && tgtTrack && !isThreat(tgtTrack) && follow && t - tgtTrack.lastLos > 1) {
           // passive target behind cover: walk around to it
           mode = "chase"
           const m = goPath(target.pos[0], target.pos[1], target.pos[2], 6)
@@ -609,7 +611,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
             if (sq && lightW && PRM.passiveRangeL > 0) pref = PRM.passiveRangeL
             else if (sq && !lightW && PRM.passiveRangeG > 0) pref = PRM.passiveRangeG
           }
-          const radial = clamp((d - pref) / Math.max(20, pref * 0.5), -1, 1)
+          let radial = clamp((d - pref) / Math.max(20, pref * 0.5), -1, 1)
+          if (earlySafe && tgtTrack && !isThreat(tgtTrack) && radial > 0) radial = 0
           move = norm2([toT[0] * radial + perp[0] + zonePull[0] * 1.5, toT[1] * radial + perp[1] + zonePull[1] * 1.5])
           boost = outside && me.energy > 30
           // grab cubes lying close by while fighting (kill drops: +HP, +damage)
@@ -658,7 +661,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
             if (farm.kind === "crate" && d > 12) (goal = [farm.pos[0], farm.pos[1]]), (goalDist = d), (mode = "farm")
           }
           // hunt: go where enemies were last seen or heard
-          if (!goal && sq && !healing && hpFrac >= PRM.huntHp && t < PRM.huntUntil && !underFire) {
+          if (!goal && sq && !earlySafe && !healing && hpFrac >= PRM.huntHp && t < PRM.huntUntil && !underFire) {
             let bd = Infinity
             let hg: V3 | null = null
             for (const tr of tracks.values()) {
