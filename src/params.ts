@@ -36,7 +36,7 @@ export const P = {
   /** FFA detector: deaths not caused by us beyond this slack switch to FFA mode. */
   ffaSlack: 1,
   /** FFA detector: a listed mech losing at least this much HP in one obs without our hit (no NPC near) counts as evidence; 2 = FFA (0 = off). */
-  ffaHpDrop: 40,
+  ffaHpDrop: 0,
 
   // ---------------- squad tactics (sq)
   /** Use the map model (LOS gates, nav paths). */

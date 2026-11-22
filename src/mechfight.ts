@@ -475,7 +475,11 @@ export function run(factory: (hello: Hello) => Bot) {
           log(e)
         }
         send({ type: "ready", name: String(bot?.name ?? "bot").slice(0, 32) })
-      } else if (msg.type === "obs") latest = msg
+      } else if (msg.type === "obs") {
+        // A backlog collapses to the newest observation; keep the older ones' events (kills, hits, damage, pickups).
+        if (latest?.events?.length) msg.events = [...latest.events, ...(msg.events ?? [])]
+        latest = msg
+      }
       else if (msg.type === "end") process.exit(0)
     }
     if (!latest) return
