@@ -65,3 +65,4 @@
 | 03:46 | sim config C4 (laser-heavy) | laser_pref,laser_duty,laser_los,fire_duty 0.15,laser_aim_mul 0.6 | v3 5.45; lightning −0.70 (real −0.46) ✓; evasion +0.20 (real ~0); cube +0.17 (real −0.22) ✗; predicts laserprio +0.22, duck10 +0.03 | – | submit laserprio first |
 | 03:57 | laserprio e7a4661 | submitted (C4 predicts +0.22, default sim −0.09) | – | – | pending |
 | 03:58 | scouting | Ahmad Suliman (#1 practice 6.74) on rooftops 36% of FFA time (spots (−120,−240,15), (160,−120,26)); only 15% of hits / 24% of kills from roofs → roofs as refuge | – | – | roof refuge/idle variants requested on d65b7cf for real A/B |
+| 04:05 | screen C2 bbc3b8d | bd23fa7 + passiveRangeG 20, lootWeaponRange 130, approachS 0 | 960 seeds: default +0.26 ± 0.06, aim0.6 +0.21 ± 0.06 (more kills, not dodging) | ffa +0.16 ± 0.31 | next real test |
