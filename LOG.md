@@ -31,3 +31,4 @@
 | 23:45 | sq knobs (off) | single changes vs 576eefa, 48 paired: cube grab 20 m +0.19 ± 0.18; face shooter +0.06 ± 0.14; crossfire step +0.08 ± 0.11; drone defense 0.00; gun during laser charge −0.08 ± 0.22; **regen window healHp 0.9 −0.65 ± 0.28**; ablation no hunting/close-in −0.63 ± 0.34 (HK0 −0.96 ± 0.32); face+cubes combined: 49–96 −0.42, HK0 −0.10 → rejected | – | – | – |
 | 23:51 | sq d1c21ac | merge ffa-on-v2 (FFA brain hook, squad unchanged) | (identity check pending) | – | – |
 | 00:44 | ffa-detect 4e4a9c4 | first clean death takeover (median 20 s vs 25.8 s) | squad +0.08 ± 0.07 (no takeovers in 192) | ffa −0.07 ± 0.41 vs v3 | not shipped: early FFA deaths come from v3's own early fights |
+| 00:58 | SCORER RESET | all earlier Mech Royale scores now 'Scored under a previous version'; board shows 2 teams; baseline 1.15 → 1.13; kit + protocol unchanged; final pick cleared | – | – | resubmitting v3 (BB-CE149C78) |
