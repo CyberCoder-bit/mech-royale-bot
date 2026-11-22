@@ -98,6 +98,11 @@ export const P = {
   tgtRecentAtk: 0,
   /** Target score bonus for a mech whose torso faces away from us (our hits do x1.5; 0 = off). */
   tgtRear: 1.0,
+  /** Target score bonus for a mech whose laser fired within laserCDWin s (it cannot answer with a laser yet; 0 = off). */
+  tgtLaserCD: 1.0,
+  laserCDWin: 2.0,
+  /** Release a partial laser charge once it is lethal: predicted damage x this safety factor >= target HP (0 = off). */
+  laserLethal: 0.85,
   /** Rear hit by an unseen attacker while shooting a non-attacker: drop it and face the shooter. */
   rearReveal: false,
   /** Shoot back at an NPC drone that hit us in the last 3 s, at any HP (when no mech target). */

@@ -157,6 +157,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   let xfPt: V3 | null = null
   let xfUntil = -1
   const pickMem = new Map<number, { kind: WeaponKind; pos: V3; t: number }>()
+  /** when each enemy last fired its laser (seen beam or a laser hit on us): it cannot fire again for ~cooldown */
+  const laserShotT = new Map<number, number>()
   let soundPt: { x: number; y: number; t: number } | null = null
   let mode = "idle"
 
@@ -223,6 +225,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           if (curTarget === ev.target) curTarget = null
         }
       }
+      for (const ev of obs.events ?? []) if (ev.type === "damaged" && ev.weapon === "laser" && ev.by != null && ev.by < 100) laserShotT.set(ev.by, t)
+      for (const b of obs.beams ?? []) if (b.kind === "laser" && b.by !== myId) laserShotT.set(b.by, t - (b.age ?? 0))
       // Mode detection: in practice house bots never kill each other.
       if (!ffa && totalMechs - obs.alive > kills + PRM.ffaSlack) ffa = true
       const npcs = obs.mechs.filter((m) => m.kind === "npc")
@@ -374,6 +378,10 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         if (!tr.los) s += PRM.tgtNoLos
         // back turned to us: our hits land in its rear arc (x1.5)
         if (PRM.tgtRear > 0 && e.aim && Math.abs(angDiff(e.aim[0], yawTo(e.pos, P))) > Math.PI / 2) s -= PRM.tgtRear
+        if (PRM.tgtLaserCD > 0) {
+          const ls = laserShotT.get(e.id)
+          if (ls !== undefined && t - ls < PRM.laserCDWin) s -= PRM.tgtLaserCD
+        }
         if (e.id === curTarget) s -= PRM.tgtSticky + PRM.tgtFocus * (1 - ef)
         if (s < tScore) (tScore = s), (target = e)
       }
@@ -488,8 +496,21 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           const aligned = !!la && Math.abs(angDiff(ay, la[0])) < yawTol && Math.abs(ap - la[1]) < pitchTol
           const clear = losNow && (!hitscanPt || shotOk(muzzle, hitscanPt))
           const ok = aligned && clear
+          // a partial charge that already kills: let go now (finish 0.1-0.6 s sooner, retarget sooner)
+          let lethalNow = false
+          if (PRM.laserLethal > 0 && target && charge > 0 && target.hp !== undefined) {
+            const st = laserW.stats as Record<string, number>
+            const minC = st.min_charge ?? 0.15, minF = st.min_frac ?? 0.35
+            if (charge >= minC) {
+              let dmg = (st.damage ?? 315) * (minF + (1 - minF) * Math.min(1, charge / full))
+              if (target.aim && Math.abs(angDiff(target.aim[0], yawTo(target.pos, P))) > Math.PI / 2) dmg *= 1.5
+              if ((target.weapons ?? []).includes("mortar")) dmg *= 1 + (st.cookoff ?? 0.6)
+              lethalNow = dmg * PRM.laserLethal >= target.hp
+            }
+          }
           if (primary === "laser") {
             if (charge <= 0) fire[laserS] = laserW.cooldown <= 0.05 && losNow // start charging
+            else if (lethalNow && ok) fire[laserS] = false // lethal already: release
             else if (charge < full - 0.02) fire[laserS] = true // keep charging
             else fire[laserS] = !ok // full: release (false) when aligned with a clear line
           } else if (charge > 0) fire[laserS] = !ok
