@@ -99,7 +99,7 @@ Full rules are in protocol.md §5–§11. This section covers the implications.
 ### Scoring dynamics: the most important section
 - Your place is `obs.alive` at the moment you die. Every mech that dies before you is worth +1.
 - **Practice:** the 15 house bots are one squad. They share vision and never fight each other, so they only die to you, the zone, or NPC drones. They hunt you weakest first: one hunter early, more as you thin them out, all of them late. As a result:
-  - Pure hiding scores about 0. The squad finds you late and nobody else has died.
+  - Pure hiding scores about 0. **Confirmed Sat 20:50 by a pacifist probe: 0.08.** House bots essentially never die unless we kill them, so the practice score ≈ the number of house bots we kill before we die (top teams ≈ 6.4).
   - Pure brawling dies early.
   - Scoring comes from killing the lone early hunters efficiently (easy bots first), healing to full between fights, and outlasting the rest in the final zone collapse.
 - **Endgame HP race:** the last circle reaches radius 0 at about 415 s with 260 HP/s, so everyone left loses HP at the same rate and dies in order of HP. If the clock runs out, survivors rank by HP. Max HP at about 6:50 decides the win: cubes add +4% each up to 10, plating +15% ×3, and a supply drop fully heals.
@@ -212,6 +212,8 @@ Practice returns one noisy number per submission, at most 6 per hour, with no st
 8. **Projectile dodging** using `obs.projectiles` and `charging` telegraphs.
 
 ## 10. External resources (public, read-only)
+
+- **Top 16 Showdown cast:** every hour or two the organizers run 6 exhibition FFA matches among the top-16 practice bots (the final's format) and air them. `bun tools/record-cast.ts runs/cast` records the live stage feed (`wss://watch.joinbuilders.org/live`, same line format as replays) plus the show state (`/state`, with team names and showdown standings). At the 8 PM showdown, kyoto-max (practice #6) won 3 of 6 matches; practice rank barely predicted FFA rank. Observing these is scouting, not code reuse.
 
 - **Public full-state replay** of a 16-house-bot FFA match (format `mechreplay/1`, older "mechanics-v2" rules, but close): `https://play.joinbuilders.org/replays/mechanics-v2-16.jsonl.gz`. Line 1 is a header whose `fields` describe the frame arrays (`m` = `[id,x,y,z,aim_yaw,aim_pitch,hp,energy,flags,cubes,max_hp,slot0,slot1]`, flags 1 grounded / 2 boosting / 4 laser charging), plus spawns, NPCs, crates, pickups, drops, and the zone schedule. Frames come every 2 ticks (`t` is in ticks) with `ev` events (`fire`, `hit{src,dst,amt,w}`, `impact`, `boom`, `zap`, `laser`, `charge{dur}`, `concuss`, `death{id,by}`, `cube`, `pickup`, `crate`, `weapon{op}`, `upgrade`, `drop`, `short`, `cookoff`, `end`). The last line is a per-mech result table. House archetypes seen: expert, hard, medium, brawler, sniper, thirdparty, farmer. The winner was a gun+lightning brawler with 16 cubes; the match was over by 3:30.
 - **Official 3D viewer:** `https://play.joinbuilders.org/game.html?replay=<url>&debug=<comma-separated debug files>` loads any `mechreplay/1` file (gzip OK). The sim should write this format so its matches can be watched there.
