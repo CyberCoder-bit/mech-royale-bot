@@ -78,3 +78,11 @@
 | 09:20 | real-stream check | recording bot gun acc 42% at 100–150 m (sim: ours 82%); damage taken laser 1260 vs gun 405 → real fights are laser duels | – | – | – |
 | 09:22 | duck c04bd34 (on robust) | duckR 10: cover within 10 m when a laser charges at us | C4 +0.12 ± 0.04 (480, earlier) | – | **4.63** (−0.32: defensive tactics keep losing in reality) |
 | 09:28 | gdc a2d6a65 (on robust) | gun fires at its lead point while the laser charges | C4 +0.13 ± 0.13, aim0.6 +0.10 ± 0.09 | – | **4.88** (noise band) |
+| 09:58 | inspiration | public READMEs (strategy text only, no code): worldBlu (real board): engage at 210 m > 120 m, never hide; lukejwaszyn: no retreat in practice +0.25; Hackermen 5.90: retreat vs 2-3 shooters + heal to 90%; waiprotein: back-turned openers | – | – | – |
+| 09:59 | caution 1cd2cce (on robust) | alive<=12: heal to 90% before optional fights, retreat <55% vs 2 / <80% vs 3+ | aim0.6 −0.09 ± 0.05 | – | queued |
+| 10:00 | range180 5db9681 / norun a4ce230 / r180norun 6a6b9d6 / backopen d8dd412 (on robust) | laser standoff 180 m (also vs passive) / retreatHp 0 / both / target bonus for back-turned mechs | r180 −0.18 ± 0.13; backopen +0.11 ± 0.09 | – | queued |
+| 10:07 | range180 5db9681 (on robust) | laser standoff 180 m, also vs passive targets | aim0.6 −0.18 ± 0.13 | – | **4.89** (noise band: range does not move our bot) |
+| 10:13 | caution 1cd2cce (on robust) | alive<=12: heal to 90% before optional fights, retreat <55% vs 2 / <80% vs 3+ | aim0.6 −0.09 ± 0.05 | – | **4.94** (noise band) |
+| 10:16 | norun a4ce230 (on robust) | retreatHp 0 | – | – | **4.98** (noise band) |
+| 10:20 | STOP | user: no more submissions. Final pick unchanged: BB-327713BA = d65b7cf (5.22). Unsubmitted, gated + pushed: backopen d8dd412, antilight d1f53e3, nanites e1048bf, faceonly 3c303ed, combo f47f70d, loot120 5953fd3, armor 97205cf, r180norun 6a6b9d6, r180caution e89db93 | – | – | – |
+| 10:17 | antilight d1f53e3 (on robust) | hold ≥60 m from lightning carriers, steer away inside it (idea from the #1 team's public docs) | aim0.6 −0.11 ± 0.07 | – | not submitted |
