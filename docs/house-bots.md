@@ -170,10 +170,11 @@ weren't facing. The survivors either won 1v1s with a strong weapon and snowballe
 6. **Kill time is about 12 s for them.** A full-HP 1400 mech takes about 31 gun hits. With our faster aim solution, a
    clean 1v1 at 80-120 m from cover should beat any single house bot. Avoid two at once: 3 of the first 5 deaths were crossfire.
 7. **Elevation and range keep you alive in FFA.** The rooftop laser camper took zero weapon damage in 210 s and placed
-   2nd. House bots rarely stand on roofs (2% of the time) and seldom look up.
-8. **Get a slot-1 weapon early.** Bots with no slot-1 weapon made up 4 of the first 5 deaths. Pickups were 1.7-10 s from spawn for most.
-9. **The zone is not where house bots lose.** They sit about 200 m inside the circle. In FFA most of the field is dead
-   by 140 s, so the endgame HP race only matters in squad/practice mode.
+   2nd. House bots rarely stand on roofs themselves (2% of the time).
+8. **Get a slot-1 weapon early.** Bots with no slot-1 weapon made up 4 of the first 5 deaths. The early takers had one by 1.7-10.4 s.
+9. **The zone is not where house bots lose.** They sit about 200 m inside the circle. In this house-bot FFA, 11 of 16 were
+   dead by 140 s. In the team-bot cast (docs/top-bots-ffa.md), 7 were still alive at 200 s and the match ran to 363 s,
+   so the endgame still matters in the final.
 10. **They hop a lot:** airborne 27% of the time, 5-9 hops per minute, rising about 14 m. When we shoot at an airborne
     target, lead its vertical motion, or wait for it to land.
 
