@@ -52,3 +52,5 @@
 | 03:04 | squad-ceiling 06707d6 | low-ceiling fix in squad path follower | −0.01 ± 0.00 (480), aim0.6 −0.00 | – | not shipped; stuck time is mostly failed roof-loot climbs (~2 s/match) |
 | 03:06 | lightning-first 1e814e2 | official | – | – | **4.46** (−0.46 vs its base 4.92): laser-first is right |
 | 03:06 | v3es salt 3 5529620 | bd23fa7 + rngSalt 3 (lottery ticket) | – | – | pending |
+| 03:11 | v3es salt 3 5529620 | official | – | – | **4.95** (salts 5.10/5.04/5.22/4.95: mean 5.08, sd ~0.11) |
+| 03:11 | laser-upg 967e4c2 | salt 2 + laser_damage/laser_charge first in upgradePref | – | – | pending (real A/B) |
