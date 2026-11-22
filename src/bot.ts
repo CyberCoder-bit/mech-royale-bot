@@ -837,7 +837,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
       }
     },
   }
-  if (opts.warm !== false && world && nav) warmUp(hello, profile, world, nav)
+  if (opts.warm !== false && world && nav && PRM.warmMs > 0) warmUp(hello, profile, world, nav)
   return bot
 }
 

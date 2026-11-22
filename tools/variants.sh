@@ -9,6 +9,8 @@ snap="$1"; seeds="$2"; shift 2
 bot="inproc:$PWD/runs/snap/$snap/src/bot.ts"
 for v in "$@"; do
   n="${v%%|*}"; j="${v#*|}"
+  # no JIT warm-up in the sim (it only costs wall time there): prepend "warmMs":0
+  if [ "$j" = "{}" ]; then j='{"warmMs":0}'; else j="{\"warmMs\":0,${j#\{}"; fi
   MR_PARAMS="$j" timeout 1800 bun "$SIM" --mode "${MODE:-squad}" --seeds "$seeds" --jobs 10 --bot "$bot" --name "var-$snap-$n" --out "$PWD/runs/var${MODE:+-$MODE}-$snap-$n.json" --quiet > /dev/null 2>&1
   echo "$n: $(python3 -I tools/ab.py "${BASE:-runs/v0-96.json}" "runs/var${MODE:+-$MODE}-$snap-$n.json" 2>/dev/null | head -1)"
 done
