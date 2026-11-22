@@ -42,3 +42,4 @@
 | 01:58 | sq2 earlySafeT sweep on cubes | T15 −0.26 ± 0.11, T6 −0.11 ± 0.08 vs no-earlySafe (480 seeds); FFA vs v3: T15 +0.93, T6 +0.90, none +0.55; earlyProbe dead end | – | – | plan: final build = cubes + earlySafeT 6, fish with rngSalt variants |
 | 02:10 | cube45 4584e63 | official (new scorer) | sim +0.20 vs v3 | – | **4.88** (−0.22 vs v3). With v4 4.73: cube-grab-45 + boost looks negative in reality → back to v3 base |
 | 02:10 | v3es salt variants (bd23fa7 + rngSalt 1..4: 449fb9b, d65b7cf, 5529620, 8a093b3) | same strategy as bd23fa7 (5.10), different RNG | salt 0 action-identical to bd23fa7 | ffa as bd23fa7 | submitting salt 1 |
+| 02:16 | ffa-drops 238bd92 | FFA supply-drop contest variants (off by default) | squad unaffected | best +0.05 ± 0.04 (2 captures); default −0.20 ± 0.15 | not shipped: drops attract top bots |
