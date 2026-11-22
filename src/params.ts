@@ -10,7 +10,7 @@ export const P = {
   /** "pacifist" is a probe build: never fires, avoids enemies. */
   profile: "fighter" as Profile,
   /** Slot-1 weapon preference, best first. */
-  weaponPref: ["laser", "lightning", "mortar"] as WeaponKind[],
+  weaponPref: ["lightning", "laser", "mortar"] as WeaponKind[],
   upgradePref: [
     "plating", "armor", "nanites", "gun_damage", "gun_rate", "laser_damage", "laser_charge", "lightning_efficiency",
     "lightning_range", "gyros", "gun_velocity", "gun_mag", "servos", "sensors", "mortar_reload", "mortar_velocity",
