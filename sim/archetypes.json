@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "source": "guess",
+  "archetypes": {
+    "easy": {
+      "reaction_s": 0.9, "aim_sigma_deg": 4.5, "lead_frac": 0.25,
+      "fire_range_m": { "gun": 130, "laser": 160, "mortar": 150, "lightning": 40 },
+      "preferred_range_m": 60, "retreat_hp_frac": 0.0, "strafe": 0.15, "boost_frac": 0.15,
+      "loot_weapon_first": true, "weapon_pref": ["lightning", "laser", "mortar"],
+      "farm_cubes": false, "upgrade_pref": ["plating", "armor", "gun_damage"],
+      "engage_range_m": 90, "aggression": 1.0
+    },
+    "medium": {
+      "reaction_s": 0.6, "aim_sigma_deg": 3.0, "lead_frac": 0.5,
+      "fire_range_m": { "gun": 160, "laser": 200, "mortar": 190, "lightning": 43 },
+      "preferred_range_m": 75, "retreat_hp_frac": 0.2, "strafe": 0.4, "boost_frac": 0.25,
+      "loot_weapon_first": true, "weapon_pref": ["laser", "lightning", "mortar"],
+      "farm_cubes": true, "upgrade_pref": ["plating", "armor", "nanites", "gun_damage"],
+      "engage_range_m": 110, "aggression": 1.0
+    },
+    "hard": {
+      "reaction_s": 0.4, "aim_sigma_deg": 1.8, "lead_frac": 0.8,
+      "fire_range_m": { "gun": 190, "laser": 240, "mortar": 210, "lightning": 44 },
+      "preferred_range_m": 85, "retreat_hp_frac": 0.3, "strafe": 0.6, "boost_frac": 0.3,
+      "loot_weapon_first": true, "weapon_pref": ["laser", "lightning", "mortar"],
+      "farm_cubes": true, "upgrade_pref": ["plating", "armor", "nanites", "gun_damage", "laser_damage"],
+      "engage_range_m": 140, "aggression": 1.0
+    },
+    "expert": {
+      "reaction_s": 0.25, "aim_sigma_deg": 1.0, "lead_frac": 0.95,
+      "fire_range_m": { "gun": 210, "laser": 260, "mortar": 225, "lightning": 45 },
+      "preferred_range_m": 95, "retreat_hp_frac": 0.35, "strafe": 0.8, "boost_frac": 0.4,
+      "loot_weapon_first": true, "weapon_pref": ["laser", "lightning", "mortar"],
+      "farm_cubes": true, "upgrade_pref": ["plating", "armor", "nanites", "laser_damage", "gun_damage", "gyros"],
+      "engage_range_m": 170, "aggression": 1.0, "use_drops": true
+    },
+    "brawler": {
+      "reaction_s": 0.3, "aim_sigma_deg": 1.6, "lead_frac": 0.8,
+      "fire_range_m": { "gun": 150, "laser": 200, "mortar": 160, "lightning": 45 },
+      "preferred_range_m": 25, "retreat_hp_frac": 0.15, "strafe": 0.6, "boost_frac": 0.6,
+      "loot_weapon_first": true, "weapon_pref": ["lightning", "laser", "mortar"],
+      "farm_cubes": true, "upgrade_pref": ["plating", "armor", "lightning_efficiency", "gun_damage", "servos"],
+      "engage_range_m": 160, "aggression": 1.0
+    },
+    "sniper": {
+      "reaction_s": 0.3, "aim_sigma_deg": 0.8, "lead_frac": 0.95,
+      "fire_range_m": { "gun": 225, "laser": 275, "mortar": 230, "lightning": 40 },
+      "preferred_range_m": 170, "retreat_hp_frac": 0.4, "strafe": 0.5, "boost_frac": 0.3,
+      "loot_weapon_first": true, "weapon_pref": ["laser", "mortar", "lightning"],
+      "farm_cubes": true, "upgrade_pref": ["plating", "laser_damage", "gun_velocity", "armor", "gun_damage"],
+      "engage_range_m": 230, "aggression": 1.0
+    },
+    "thirdparty": {
+      "reaction_s": 0.35, "aim_sigma_deg": 1.2, "lead_frac": 0.9,
+      "fire_range_m": { "gun": 200, "laser": 250, "mortar": 225, "lightning": 45 },
+      "preferred_range_m": 110, "retreat_hp_frac": 0.4, "strafe": 0.6, "boost_frac": 0.3,
+      "loot_weapon_first": true, "weapon_pref": ["mortar", "laser", "lightning"],
+      "farm_cubes": true, "upgrade_pref": ["plating", "armor", "mortar_splash", "nanites", "gun_damage"],
+      "engage_range_m": 200, "aggression": 0.4, "third_party": true
+    },
+    "farmer": {
+      "reaction_s": 0.4, "aim_sigma_deg": 1.5, "lead_frac": 0.8,
+      "fire_range_m": { "gun": 180, "laser": 230, "mortar": 210, "lightning": 44 },
+      "preferred_range_m": 120, "retreat_hp_frac": 0.5, "strafe": 0.5, "boost_frac": 0.3,
+      "loot_weapon_first": true, "weapon_pref": ["laser", "mortar", "lightning"],
+      "farm_cubes": true, "upgrade_pref": ["plating", "armor", "nanites", "reactor", "gun_damage"],
+      "engage_range_m": 100, "aggression": 0.3, "use_drops": true
+    }
+  },
+  "tiers": { "easy": "easy", "medium": "medium", "hard": "hard", "expert": "expert" }
+}
