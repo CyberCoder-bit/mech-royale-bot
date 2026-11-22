@@ -73,6 +73,8 @@ export const P = {
   v1Band: { lightning: [8, 32], laser: [60, 190], mortar: [60, 190], gunWithLightning: [15, 90], gun: [55, 125] } as Record<string, [number, number]>,
   /** Keep the fight going this long (s) after losing sight of the target: duck, reload, peek back. */
   peekS: 4,
+  /** Below this target HP fraction never duck (crossfire/reload): finish it. */
+  finishHp: 0.25,
   /** Search radius (m) for a spot with a clear shot when the target ducks out of sight. */
   peekSearch: 18,
   /** Chase a wounded enemy (HP fraction below pursueHp) seen within pursueS seconds if we have pursueMinHp. */

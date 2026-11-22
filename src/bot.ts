@@ -314,7 +314,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
     if (tgt && engage) {
       const tWeak = hpF(tgt) < hpFrac - PRM.retreatMargin
       mode = lowHp && !tWeak ? "retreat" : "fight"
-    } else if (engLive && !lowHp && t - engagedLosT < Q.peekS && !crossfire) mode = "fight"
+    } else if (engLive && !lowHp && t - engagedLosT < Q.peekS && !crossfire && !(engWeak && hpFrac > Q.pursueMinHp)) mode = "fight"
     else if (eng && engWeak && hpFrac > Q.pursueMinHp && t - eng.seenT < Q.pursueS && profile === "fighter" && (!ffa || hpFrac > 0.6)) mode = "pursue"
     else if (seenBy.length && (ffa || lowHp)) mode = "evade"
     else if (hpFrac < Q.healHp || (prevMode === "heal" && hpFrac < Q.healDoneHp)) mode = "heal"
@@ -422,10 +422,10 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
       const gunOut = !gunW || (gunW.reload ?? 0) > Q.duckReloadS || (gunW.ammo ?? 1) <= 0
       const laserOut = !laserW || (laserW.cooldown > Q.duckReloadS && laserCharge <= 0)
       const lightOk = !!lightW && d < (lightW.stats.range ?? 45) * 0.9 && me.energy > 10
-      const finishing = hpF(ft) < 0.15 && d < 120
+      const finishing = hpF(ft) < Q.finishHp && d < 150
       if (laserThreat && coverD < Q.duckLaserDist) (duckUntil = Math.max(duckUntil, t + 0.6)), (duckWhy = "L")
       else if (crossfire && !finishing && coverD < Q.coverSearch) (duckUntil = Math.max(duckUntil, t + 0.4)), (duckWhy = "X")
-      else if (gunOut && laserOut && !lightOk && coverD < Q.coverLeash + 4) (duckUntil = Math.max(duckUntil, t + 0.3)), (duckWhy = "R")
+      else if (gunOut && laserOut && !lightOk && !finishing && coverD < Q.coverLeash + 4) (duckUntil = Math.max(duckUntil, t + 0.3)), (duckWhy = "R")
       dbgNote = `c${Number.isFinite(coverD) ? Math.round(coverD) : "-"}${t < duckUntil ? duckWhy : ""} s${seenBy.length}`
       if (t < duckUntil && cover && !zoneUrgent) {
         goTo(cover.x, cover.y, cover.z, 1.5, 2)
