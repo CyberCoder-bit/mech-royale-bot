@@ -12,8 +12,8 @@ export const P = {
   /** Slot-1 weapon preference, best first. */
   weaponPref: ["laser", "lightning", "mortar"] as WeaponKind[],
   upgradePref: [
-    "plating", "armor", "nanites", "gun_damage", "gun_rate", "laser_damage", "laser_charge", "lightning_efficiency",
-    "lightning_range", "gyros", "gun_velocity", "gun_mag", "servos", "sensors", "mortar_reload", "mortar_velocity",
+    "armor", "plating", "gun_damage", "nanites", "gun_rate", "laser_damage", "servos", "laser_charge", "gun_velocity",
+    "lightning_efficiency", "lightning_range", "gyros", "gun_mag", "sensors", "mortar_reload", "mortar_velocity",
     "mortar_splash", "lightning_chain", "laser_pierce", "reactor", "capacitor", "jets",
   ],
   /** Retreat when HP fraction is below this and the target is healthier (by retreatMargin) or we face several enemies. */
