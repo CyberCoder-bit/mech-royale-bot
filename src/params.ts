@@ -57,6 +57,12 @@ export const P = {
   closeEngage: 0,
   /** Heal: with no attacker and HP below this, hold fire on passive targets, crates and NPCs. */
   healHp: 0.0,
+  /** Caution phase (squad): when obs.alive <= cautionAlive (0 = off), heal to cautionHeal before optional fights,
+   *  and retreat below cautionRetreat2 / cautionRetreat3 HP when 2 / 3+ attackers are on us. */
+  cautionAlive: 12,
+  cautionHeal: 0.9,
+  cautionRetreat2: 0.55,
+  cautionRetreat3: 0.8,
   /** Hunt: with no target and HP at or above this, path toward remembered enemies / sounds. */
   huntHp: 0.6,
   /** Hunt: forget remembered enemy positions after this many seconds. */

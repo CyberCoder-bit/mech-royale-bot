@@ -353,7 +353,10 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
       }
 
       // ---------------- target selection
-      const healing = profile === "fighter" && hpFrac < PRM.healHp && !underFire
+      // Caution phase (squad play): once the squad has thinned (the easy hunters are gone and several
+      // hunters come at once), heal up before the next optional fight and back off earlier when outnumbered.
+      const careful = sq && PRM.cautionAlive > 0 && obs.alive <= PRM.cautionAlive
+      const healing = profile === "fighter" && hpFrac < (careful ? Math.max(PRM.healHp, PRM.cautionHeal) : PRM.healHp) && !underFire
       let target: ActorObs | null = null
       let tScore = Infinity
       for (const e of listed) {
@@ -582,7 +585,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         const ef = (target.hp ?? 1400) / Math.max(1, target.max_hp ?? 1400)
         const toT = unit(ty)
         const perp: V2 = [-toT[1] * jinkSign, toT[0] * jinkSign]
-        const retreat = profile === "pacifist" || (hpFrac < PRM.retreatHp && (ef > hpFrac + PRM.retreatMargin || engagedBy > 1))
+        const retreat = profile === "pacifist" || (hpFrac < PRM.retreatHp && (ef > hpFrac + PRM.retreatMargin || engagedBy > 1)) ||
+          (careful && ((engagedBy >= 2 && hpFrac < PRM.cautionRetreat2) || (engagedBy >= 3 && hpFrac < PRM.cautionRetreat3)))
         if (retreat) {
           mode = "retreat"
           move = norm2([-toT[0] + perp[0] * 0.6 + zonePull[0] * 1.2, -toT[1] + perp[1] * 0.6 + zonePull[1] * 1.2])
