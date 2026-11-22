@@ -58,7 +58,7 @@ export const P = {
   /** Heal: with no attacker and HP below this, hold fire on passive targets, crates and NPCs. */
   healHp: 0.0,
   /** Hunt: with no target and HP at or above this, path toward remembered enemies / sounds. */
-  huntHp: 0.6,
+  huntHp: 0.45,
   /** Hunt: forget remembered enemy positions after this many seconds. */
   huntMemS: 40,
   /** Hunt: stop hunting at this match time (everyone hunts us after ~330 s). */
@@ -88,7 +88,7 @@ export const P = {
   /** Lead airborne targets with gravity (jetting ones at constant rise), floor at the surface below them. */
   gravityLead: false,
   /** Boost on hunting/looting trips longer than travelBoostD m while energy is above travelBoostE (0 = off). */
-  travelBoostE: 0,
+  travelBoostE: 40,
   travelBoostD: 80,
   /** Crossfire: with 2+ attackers holding a line on us, step (up to this radius, m) to where at most one does (0 = off). */
   xfireR: 0,
