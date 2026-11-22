@@ -119,8 +119,9 @@ for (const m of result?.mechs ?? []) mechIds.add(m.id)
 const ids = [...mechIds].sort((a, b) => a - b)
 const nameOf = (id: number) => header.mechs?.find((m: any) => m.id === id)?.name ?? result?.mechs?.find((m: any) => m.id === id)?.name ?? `mech${id}`
 const archOf = (id: number) => {
+  // house bots group by archetype ("house:expert" -> "expert"); team entries ("docker:...") group by their mech name
   const b = header.bots?.[id]
-  if (typeof b === "string") return b.replace(/^house:/, "")
+  if (typeof b === "string" && b.startsWith("house:")) return b.slice(6)
   return nameOf(id)
 }
 
