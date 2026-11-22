@@ -1887,9 +1887,15 @@ export class Match {
     }
   }
 
+  private wsCache = new Map<string, Record<string, number>>()
   private fmtWeapon(m: Mech, w: Weapon) {
-    const st: Record<string, number> = {}
-    for (const [k, v] of Object.entries(m.wmods[w.kind])) st[k] = typeof v === "number" ? Math.round(v * 10000) / 10000 : v
+    const key = `${m.id}:${w.kind}:${m.upList.length}`
+    let st = this.wsCache.get(key)
+    if (!st) {
+      st = {}
+      for (const [k, v] of Object.entries(m.wmods[w.kind])) st[k] = typeof v === "number" ? Math.round(v * 10000) / 10000 : v
+      this.wsCache.set(key, st)
+    }
     const o: any = { kind: w.kind, cooldown: r2(Math.max(0, w.cooldown)), stats: st }
     if (w.kind === "gun") {
       o.ammo = w.ammo
@@ -1899,7 +1905,11 @@ export class Match {
     return o
   }
 
+  private ssCache = new Map<number, { key: string; s: Record<string, number> }>()
   selfStats(m: Mech): Record<string, number> {
+    const key = `${m.cubes}:${m.upList.length}`
+    const c = this.ssCache.get(m.id)
+    if (c && c.key === key) return c.s
     const s: Record<string, number> = {}
     const size = this.size(m)
     for (const [k, v] of Object.entries(m.ms)) s[k] = Math.round(v * 10000) / 10000
@@ -1907,6 +1917,7 @@ export class Match {
     s.height = r3(m.ms.height * size)
     s.eye_height = r3(m.ms.eye_height * size)
     s.muzzle_height = r3(m.ms.muzzle_height * size)
+    this.ssCache.set(m.id, { key, s })
     return s
   }
 

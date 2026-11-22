@@ -30,6 +30,10 @@ export interface Archetype {
   aggression?: number
   third_party?: boolean
   use_drops?: boolean
+  /** chance that a new roam goal is "hold this spot" for 15-30 s (top bots stand still 43% of the time) */
+  camp?: number
+  /** per-archetype override of the global fire_duty knob */
+  fire_duty?: number
 }
 
 let archCache: { archetypes: Record<string, Archetype>; tiers: Record<string, string> } | null = null
@@ -62,10 +66,10 @@ const SIM_EXTRAS: Record<string, Partial<Archetype>> = {
   top: {
     reaction_s: 0.2, aim_sigma_deg: 0.7, lead_frac: 0.95,
     fire_range_m: { gun: 200, laser: 240, mortar: 200, lightning: 44 },
-    preferred_range_m: 90, retreat_hp_frac: 0.35, strafe: 0.35, boost_frac: 0.08,
+    preferred_range_m: 75, retreat_hp_frac: 0.35, strafe: 0.35, boost_frac: 0.08,
     loot_weapon_first: true, weapon_pref: ["laser", "lightning", "mortar"], farm_cubes: true,
-    upgrade_pref: ["plating", "armor", "nanites", "gun_damage", "laser_damage", "gun_rate"],
-    engage_range_m: 180, use_drops: true,
+    upgrade_pref: ["armor", "gun_rate", "plating", "nanites", "laser_damage", "gyros"],
+    engage_range_m: 120, use_drops: true, camp: 0.6,
   },
   thirdparty: { third_party: true, aggression: 0.4 },
   farmer: { aggression: 0.3, use_drops: true },
@@ -515,11 +519,16 @@ export class HouseAgent implements Agent {
       goal = [zone.next_center[0], zone.next_center[1]]
     }
     if (!goal && this.mode === "roam") {
-      if (!this.roam || t > this.roamT || d2(x, y, this.roam[0], this.roam[1]) < 8 || d2(this.roam[0], this.roam[1], zone.next_center[0], zone.next_center[1]) > safeR) {
+      const camping = this.roam && t <= this.roamT && (A.camp ?? 0) > 0 && d2(x, y, this.roam[0], this.roam[1]) < 8
+      if (!camping && (!this.roam || t > this.roamT || d2(x, y, this.roam[0], this.roam[1]) < 8 || d2(this.roam[0], this.roam[1], zone.next_center[0], zone.next_center[1]) > safeR)) {
         const ang = this.rng.next() * TAU
         const rr = Math.sqrt(this.rng.next()) * Math.max(10, safeR * 0.7)
         this.roam = [zone.next_center[0] + Math.cos(ang) * rr, zone.next_center[1] + Math.sin(ang) * rr]
         this.roamT = t + 20 + this.rng.next() * 20
+        if ((A.camp ?? 0) > 0 && this.rng.next() < A.camp! && d2(x, y, zone.next_center[0], zone.next_center[1]) < safeR) {
+          this.roam = [x, y]
+          this.roamT = t + 15 + this.rng.next() * 15
+        }
       }
       goal = this.roam
     }
@@ -772,7 +781,7 @@ export class HouseAgent implements Agent {
     }
     // burst windows: a share (fire_duty) of the time the bot actually pulls the trigger
     if (t >= this.burstT) {
-      this.burstOn = this.rng.next() < this.tune.fire_duty
+      this.burstOn = this.rng.next() < (A.fire_duty ?? this.tune.fire_duty)
       this.burstT = t + 0.6 + this.rng.next() * 0.9
     }
     if (!this.burstOn) {
