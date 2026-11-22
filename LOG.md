@@ -40,3 +40,5 @@
 | 01:45 | v4 ecb87e1 | official (new scorer) | sim ≈ v3 −0.06 | – | **4.73** (−0.37 vs v3; ~1σ of real per-variant noise) |
 | 01:46 | cube45 4584e63 | v3 + cube grab 45 + boost (no earlySafe) | 480 seeds +0.20 ± 0.09 (replicated +0.21), HK0 +0.27 | ffa +0.55 ± 0.24 vs v3 | pending |
 | 01:58 | sq2 earlySafeT sweep on cubes | T15 −0.26 ± 0.11, T6 −0.11 ± 0.08 vs no-earlySafe (480 seeds); FFA vs v3: T15 +0.93, T6 +0.90, none +0.55; earlyProbe dead end | – | – | plan: final build = cubes + earlySafeT 6, fish with rngSalt variants |
+| 02:10 | cube45 4584e63 | official (new scorer) | sim +0.20 vs v3 | – | **4.88** (−0.22 vs v3). With v4 4.73: cube-grab-45 + boost looks negative in reality → back to v3 base |
+| 02:10 | v3es salt variants (bd23fa7 + rngSalt 1..4: 449fb9b, d65b7cf, 5529620, 8a093b3) | same strategy as bd23fa7 (5.10), different RNG | salt 0 action-identical to bd23fa7 | ffa as bd23fa7 | submitting salt 1 |
