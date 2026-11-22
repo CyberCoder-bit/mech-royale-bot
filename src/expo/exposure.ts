@@ -241,14 +241,14 @@ export class ExposureMap {
     const t0 = performance.now();
     const cx = this.x0 + (this.nx * this.cell) / 2, cy = this.y0 + (this.ny * this.cell) / 2;
     let acc = 0;
-    for (let r = 0; r < 12; r++) {
-      const spots = this.bestSpots([cx + 13 * r, cy - 7 * r], 80 + 40 * (r % 6), 6, {
+    for (let r = 0; r < 6; r++) {
+      const spots = this.bestSpots([cx + 13 * r, cy - 7 * r], 100 + 30 * r, 6, {
         avoid: [[cx, cy]],
         roofs: r % 2 === 1,
       });
       acc += spots.length;
     }
-    for (let i = 0; i < 3000; i++) {
+    for (let i = 0; i < 1500; i++) {
       const x = cx + ((i * 37) % 400) - 200, y = cy + ((i * 53) % 300) - 150;
       acc += this.exposureAt(x, y, i % 3 ? undefined : 2) + this.nearExposureAt(x, y) + this.coverMask(x, y);
     }

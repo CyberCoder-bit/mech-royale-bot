@@ -129,6 +129,67 @@ describe("lookups", () => {
   });
 });
 
+describe("vision model vs the recorded server stream", () => {
+  test("ground heights match and sight transitions agree with LOS + 5 s memory", async () => {
+    const { gunzipSync } = await import("zlib");
+    const raw = new Uint8Array(await Bun.file(join(ROOT, "kit/check/stream.jsonl.gz")).arrayBuffer());
+    const obs = new TextDecoder()
+      .decode(gunzipSync(raw))
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l))
+      .filter((o) => o.type === "obs");
+    // per observation: is mech m listed, and does our model say it is visible right now?
+    const seen = new Map<number, { t: number; listed: boolean; vis: boolean }[]>();
+    let worstZ = 0;
+    for (const o of obs) {
+      const [x, y, z] = o.self.pos;
+      if (o.self.grounded) worstZ = Math.max(worstZ, Math.abs(z - W.groundAt(x, y)));
+      const ez = z + o.self.stats.eye_height;
+      for (const id of new Set([...seen.keys(), ...o.mechs.filter((m: any) => m.kind === "mech").map((m: any) => m.id)])) {
+        const m = o.mechs.find((mm: any) => mm.id === id);
+        if (!seen.has(id)) seen.set(id, []);
+        if (!m) {
+          seen.get(id)!.push({ t: o.t, listed: false, vis: false });
+          continue;
+        }
+        const [mx, my, mz] = m.pos;
+        const near = Math.hypot(mx - x, my - y, mz + 4.5 - ez) <= 45;
+        let dyaw = Math.atan2(my - y, mx - x) - o.self.aim[0];
+        dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
+        const inView = near || (Math.hypot(mx - x, my - y) <= 200 && Math.abs(dyaw) <= Math.PI / 3);
+        const vis = inView && (W.los(x, y, ez, mx, my, mz + 4.5, near) || W.los(x, y, ez, mx, my, mz + 9, near));
+        seen.get(id)!.push({ t: o.t, listed: true, vis });
+      }
+    }
+    expect(worstZ).toBeLessThan(0.05);
+    let checks = 0;
+    for (const track of seen.values())
+      for (let k = 1; k < track.length; k++) {
+        const a = track[k - 1], b = track[k];
+        // first listing after an absence: the server sees it now, so must we
+        if (!a.listed && b.listed) {
+          expect(b.vis).toBe(true);
+          checks++;
+        }
+        // dropped from the list: our last visible frame must be ~memory_s (5 s) earlier
+        if (a.listed && !b.listed) {
+          let last = -1;
+          for (let q = k - 1; q >= 0 && track[q].listed; q--)
+            if (track[q].vis) {
+              last = track[q].t;
+              break;
+            }
+          expect(last).toBeGreaterThan(0);
+          expect(b.t - last).toBeGreaterThan(4.6);
+          expect(b.t - last).toBeLessThan(5.4);
+          checks++;
+        }
+      }
+    expect(checks).toBeGreaterThanOrEqual(3);
+  });
+});
+
 describe("sanity: the map ranks hiding places sensibly", () => {
   // classify walkable ground cells
   const alley: number[] = [], open: number[] = [];
