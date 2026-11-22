@@ -63,3 +63,4 @@
 | 03:30 | laserprio e7a4661 | salt 2 + tgtLaser 2.0 (≤220 m) + tgtCharging 3.0 | – | – | queued after duck10 |
 | 03:30 | sim diagnosis | sim damage taken: gun 69%, laser 17% (v3) vs real stream laser 76% | – | – | sim over-credits evasion; laser-heavy sim config being built + calibrated to new-scorer results |
 | 03:46 | sim config C4 (laser-heavy) | laser_pref,laser_duty,laser_los,fire_duty 0.15,laser_aim_mul 0.6 | v3 5.45; lightning −0.70 (real −0.46) ✓; evasion +0.20 (real ~0); cube +0.17 (real −0.22) ✗; predicts laserprio +0.22, duck10 +0.03 | – | submit laserprio first |
+| 03:57 | laserprio e7a4661 | submitted (C4 predicts +0.22, default sim −0.09) | – | – | pending |
