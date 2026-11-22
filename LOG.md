@@ -56,3 +56,5 @@
 | 03:11 | laser-upg 967e4c2 | salt 2 + laser_damage/laser_charge first in upgradePref | – | – | pending (real A/B) |
 | 03:15 | laser-upg 967e4c2 | official | – | – | **5.01** (noise band) |
 | 03:15 | v3es salt 4 8a093b3 | bd23fa7 + rngSalt 4 | – | – | pending |
+| 03:23 | v3es salt 4 8a093b3 | official | – | – | **4.94** |
+| 03:23 | evasion ed2ee0b | bd23fa7 + fight boost, jink 0.3+0.5, lateral mortar dodge, no retreat (squad only) | 480 seeds: default +0.38 ± 0.10, aim0.6 +0.35 ± 0.09 (all blocks +) | ffa: v3 values | pending (real A/B) |
