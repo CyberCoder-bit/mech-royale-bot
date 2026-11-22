@@ -94,6 +94,8 @@ export const P = {
   xfireR: 0,
   /** Target the attacker that hit us in the last 2 s (extra score bonus; 0 = off). */
   tgtRecentAtk: 0,
+  /** Target score bonus for a mech whose torso faces away from us (our hits do x1.5; 0 = off). */
+  tgtRear: 1.0,
   /** Rear hit by an unseen attacker while shooting a non-attacker: drop it and face the shooter. */
   rearReveal: false,
   /** Shoot back at an NPC drone that hit us in the last 3 s, at any HP (when no mech target). */
