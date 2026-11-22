@@ -47,7 +47,7 @@ type Track = {
 
 export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { dbg: { mode: string; target: number; los: boolean; listed: string; weapons: string; info: string } } {
   const cfg = hello.config
-  const rand = rng(Number(hello.seed) || 1)
+  const rand = rng(((Number(hello.seed) || 1) + Math.imul(PRM.rngSalt | 0, 0x9e3779b1)) >>> 0 || 1)
   const totalMechs = cfg.match?.mechs ?? 16
   const sizePerCube = Number((cfg.cubes as Record<string, unknown>).size_per_cube ?? 0.05)
   const reach = cfg.loot.pickup_radius ?? 4
