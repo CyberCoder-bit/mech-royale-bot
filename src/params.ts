@@ -155,7 +155,7 @@ export const P = {
   /** ...on the roof, step out to targets only at or above this HP fraction (or when they are close) */
   refugePeekHp: 0.95,
   /** Idle: with nothing to fight, loot or hunt, wait on a roof within roofIdleR m inside the next zone (after roofIdleT s). */
-  roofIdle: false,
+  roofIdle: true,
   roofIdleR: 120,
   roofIdleT: 3,
   /** Roof filters: highest climb (m), smallest area (m²), least depth (2 m nav cells from the edge), least height (m). */
