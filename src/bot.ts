@@ -214,7 +214,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
     const margin = nr < 1 ? 0 : Math.max(PRM.zoneMarginMin, Math.min(PRM.zoneMarginMax, nr * PRM.zoneMarginFrac))
     // hysteresis: once heading in, keep going until the zone goal depth is reached (no boundary dithering)
     const zoneIn = nr < 1 ? 2 : nr - margin
-    const zoneDeep = nr < 1 ? 2 : Math.max(0, nr - margin * 1.3) + 2
+    const zoneDeep = nr < 1 ? 2 : Math.max(0, nr - margin * 1.3) + 7 // zone goal radius + follower tolerance (6 m)
     const needZone = dNext > zoneIn || (zoneLatch && dNext > zoneDeep)
     zoneLatch = needZone
     const outside = !me.in_zone
