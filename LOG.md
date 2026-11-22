@@ -36,3 +36,4 @@
 | 01:03 | earlysafe bd23fa7 | v3 + earlySafeT 15 (no fights with healthy passives in first 15 s) | 192 seeds: −0.03 ± 0.18 default, −0.29 ± 0.16 HK0 | ffa +1.07 ± 0.35 | pending (new scorer) |
 | 01:13 | earlysafe bd23fa7 | official (new scorer) | – | – | **5.10** (= v3) → PICKED as final entry (better FFA) |
 | 01:13 | v4 ecb87e1 | merge of sq2 4584e63 (cube grab 45 + boost; 480 seeds +0.20 ± 0.09, HK0 +0.27 ± 0.12) + earlySafeT 15 | 48 seeds +0.02 ± 0.44 vs v3 (noise) | – | pending |
+| 01:22 | econ 18d44eb | crate/drone/cube farming memory (off), cube cap 10 (on), supply drops, upgrade order | +0.04 ± 0.02 (1000 seeds); farming 0.00; drops +0.09 ± 0.27 | ffa identical | not submitted: cubes grow size (+5% each) so defence ~cancels |
