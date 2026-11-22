@@ -208,7 +208,7 @@ function newMech(id: number) {
     speeds: [] as number[], speeds_boost: [] as number[], speeds_walk: [] as number[], hag: [] as number[], max_z: -Infinity, max_hag: -Infinity, roof_s: 0,
     crates: 0, npc_kills: 0, takes: [] as [number, string][], drops_taken: 0, charge_durs: [] as number[],
     fx_dealt: {} as Record<string, number>, fx_taken: {} as Record<string, number>, cube_pickups: {} as Record<string, number>,
-    hp_timeline: [] as [number, number, number][], min_hp_frac: 1, shots: [] as Shot[],
+    hp_timeline: [] as [number, number, number][], min_hp_frac: 1, shots: [] as Shot[], charge_runs: [] as number[], charge_t0: -1,
   }
 }
 type M = ReturnType<typeof newMech>
@@ -227,7 +227,8 @@ for (let fi = 0; fi < frames.length; fi++) {
     const fl = r[I.fl] ?? 1, grounded = (fl & 1) !== 0
     if (fl & 2) s.boost_s += dt
     if (!grounded) s.air_s += dt
-    if (fl & 4) s.charge_s += dt
+    if (fl & 4) { s.charge_s += dt; if (s.charge_t0 < 0) s.charge_t0 = tsec }
+    else if (s.charge_t0 >= 0) { s.charge_runs.push(tsec - s.charge_t0); s.charge_t0 = -1 }
     const cubes = r[I.cubes] ?? 0
     if (cubes > s.cubes_max) s.cubes_max = cubes
     const lastC = s.cube_timeline.length ? s.cube_timeline[s.cube_timeline.length - 1][1] : 0
@@ -565,7 +566,7 @@ function mechReport(s: M) {
       max_height_above_ground: ground ? r1(s.max_hag) : null, elevated_grounded_s: ground ? r1(s.roof_s) : null },
     cubes_max: s.cubes_max, cube_timeline: s.cube_timeline, cube_sources: s.cube_pickups, upgrades: s.upgrades,
     loadout_timeline: s.loadout_timeline, takes: s.takes, first_weapon_t: s.takes[0]?.[0] ?? null,
-    laser_charge_s: s.charge_durs.length ? stat(s.charge_durs, 2) : null, min_hp_frac: r1(s.min_hp_frac, 2),
+    laser_hold_s: s.charge_runs.length ? stat(s.charge_runs, 2) : null, charge_event_dur_s: s.charge_durs.length ? stat(s.charge_durs, 2) : null, min_hp_frac: r1(s.min_hp_frac, 2),
   }
 }
 function round(o: Record<string, number>) { const r: Record<string, number> = {}; for (const [k, v] of Object.entries(o)) r[k] = Math.round(v); return r }
@@ -657,7 +658,7 @@ function archetypeReport(group: M[]) {
     hit_dist_m: Object.fromEntries(["gun", "mortar", "laser", "lightning"].map((w) => [w, all((s) => s.hit_dist[w] ?? [])]).filter(([, a]) => (a as number[]).length).map(([w, a]) => [w, stat(a as number[], 0)])),
     fire_dist_m: fireRange,
     rear_hits_dealt: rearW, rear_dealt_pct: pct(sum((s) => s.rear_dealt), sum((s) => s.hits_dealt_mech)), rear_taken_pct: pct(sum((s) => s.rear_taken), sum((s) => s.hits_taken_mech)),
-    laser_charge_s: stat(all((s) => s.charge_durs), 2),
+    laser_hold_s: stat(all((s) => s.charge_runs), 2), charge_event_dur_s: stat(all((s) => s.charge_durs), 2),
     engagement: { n: eng.length, start_dist: stat(eng.filter((e) => e.dist != null).map((e) => e.dist!), 0), by_weapon: countBy(eng.map((e) => e.w)),
       multi_candidate: eng2.length, nearest_pct: pct(eng2.filter((e) => e.nearest).length, eng2.length), lowest_hp_pct: pct(eng2.filter((e) => e.lowestHp).length, eng2.length),
       random_baseline_pct: eng2.length ? r1(100 * (mean(eng2.map((e) => 1 / e.nCand)) ?? 0)) : null, target_hp_frac_median: r1(q(eng.map((e) => e.targetHpFrac).filter(Number.isFinite), 0.5), 2) },
@@ -687,7 +688,7 @@ if (flag("--json") || flag("--archetypes")) {
 const meta = { source: src, format: header.format ?? null, seed: header.seed ?? null, ticks: result?.ticks ?? lastTick, duration_s: r1(lastTick / HZ, 2), frames: frames.length,
   terrain: !!ground, inferred: { gun_speed: r1(GUN_SPEED), npc_bullet_speed: r1(q(projSpeeds["2"] ?? [], 0.9)), mortar_horiz_speed_p90: r1(q(projSpeeds["1"] ?? [], 0.9)),
     walk_speed_p90: r1(q([...mechs.values()].flatMap((s) => s.speeds_walk), 0.9)), boost_speed_p95: r1(q([...mechs.values()].flatMap((s) => s.speeds_boost), 0.95)),
-    laser_charge_median: r1(q([...mechs.values()].flatMap((s) => s.charge_durs), 0.5), 2) }, winner: [...mechs.values()].find((s) => s.place === 1)?.id ?? null }
+    laser_hold_median: r1(q([...mechs.values()].flatMap((s) => s.charge_runs), 0.5), 2), charge_event_dur_median: r1(q([...mechs.values()].flatMap((s) => s.charge_durs), 0.5), 2) }, winner: [...mechs.values()].find((s) => s.place === 1)?.id ?? null }
 
 if (flag("--json")) {
   console.log(JSON.stringify({ meta, mechs: reports, archetypes: only == null ? arch : undefined, engagements: only == null ? engagements : engagements.filter((e) => e.shooter === Number(only) || e.target === Number(only)), ttk }, null, 1))
@@ -702,7 +703,7 @@ if (flag("--json")) {
     L.push(`  taken ${JSON.stringify(r.damage_taken)}  rear dealt ${r.rear.dealt}/${r.rear.dealt_of} taken ${r.rear.taken}/${r.rear.taken_of}  fx dealt ${JSON.stringify(r.effects_dealt)} taken ${JSON.stringify(r.effects_taken)}`)
     for (const [w, a] of Object.entries(r.accuracy)) L.push(`  acc ${w}: ${JSON.stringify(a)}`)
     for (const [w, h] of Object.entries(r.hit_dist_m)) L.push(`  hit dist ${w}: n=${h.n} p10=${h.p10} med=${h.median} p90=${h.p90}`)
-    if (r.laser_charge_s) L.push(`  laser charge s: ${JSON.stringify(r.laser_charge_s)}`)
+    if (r.laser_hold_s) L.push(`  laser hold s (charging-flag runs): ${JSON.stringify(r.laser_hold_s)}  charge event dur: ${JSON.stringify(r.charge_event_dur_s)}`)
     const mv = r.movement
     L.push(`  move: speed med ${mv.speed.median} p90 ${mv.speed.p90} | walk med ${mv.speed_walk.median} boost med ${mv.speed_boost.median} | boost ${mv.boost_pct}% air ${mv.airborne_pct}% still ${mv.still_pct}% charging ${mv.charging_pct}% | max z ${mv.max_z} above-ground max ${mv.max_height_above_ground} elevated ${mv.elevated_grounded_s}s`)
     L.push(`  zone: out ${r.zone.out_s}s dmg ${r.zone.dmg} margin min ${r.zone.margin_m_min} med ${r.zone.margin_m_median}  min hp ${r.min_hp_frac}`)
@@ -719,7 +720,7 @@ if (flag("--json")) {
       L.push(`  gun hit rate by dist ${a.gun_hit_rate_by_dist.map((b: any) => `${b.range}:${b.hits}/${b.shots}`).join(" ")}  fit ${JSON.stringify(a.aim_fit)}`)
       L.push(`  hit dist ${JSON.stringify(a.hit_dist_m)}`)
       L.push(`  fire dist ${JSON.stringify(a.fire_dist_m)}`)
-      L.push(`  rear dealt ${a.rear_dealt_pct}% ${JSON.stringify(a.rear_hits_dealt)} taken ${a.rear_taken_pct}%  laser charge ${JSON.stringify(a.laser_charge_s)}`)
+      L.push(`  rear dealt ${a.rear_dealt_pct}% ${JSON.stringify(a.rear_hits_dealt)} taken ${a.rear_taken_pct}%  laser hold ${JSON.stringify(a.laser_hold_s)}`)
       L.push(`  engagement ${JSON.stringify(a.engagement)}  reaction ${JSON.stringify(a.reaction_s)}`)
       L.push(`  combat motion ${JSON.stringify(a.combat_motion)}  retreat ${a.retreat_curve.map((b: any) => `${b.hp}:${b.away_pct}%(${b.frames})`).join(" ")}`)
       L.push(`  regen ${JSON.stringify(a.regen)}  ttk ${JSON.stringify(a.ttk_s)} hits ${JSON.stringify(a.ttk_hits)}`)
