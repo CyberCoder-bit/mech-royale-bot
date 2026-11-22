@@ -1,20 +1,22 @@
 // Static exposure map: how visible a mech standing at a spot is to mechs around it, precomputed
 // offline by tools/precompute-exposure.ts into data/exposure.{json,bin}. Sync load, a few ms.
 //
-// Values are fractions in [0, 1]: 0 = no sample viewpoint (rings of 15..190 m x 32 directions,
-// viewers on walkable ground or reachable roofs) sees the spot, 1 = every one does. "near" is the
-// same for the 15/30/44 m rings only (proximity range: predicts surprise contact).
+// Values are fractions in [0, 1]: 0 = no sample viewpoint (rings of 15/30/44/80/130/190 m x 64
+// directions, viewers on walkable ground or reachable roofs, eye +8 m, LOS to the target's centre
+// or top under the vision rules) sees the spot, 1 = every one does. "near" is the same for the
+// 15/30/44 m rings only (proximity range, canopy ignored: predicts surprise contact).
 // Each 4 m cell has a ground layer (terrain or bridge deck) and, where a reachable prism top
 // exists, a roof layer. Pass z (feet height) to pick the layer; without z the ground layer wins.
 //
-// Usage: import { exposureAt, bestSpots } from "./expo/exposure.ts". Data is looked up next to
-// the bundle (/bot/data in the image), at ../../data from this source file, or in $CWD/data.
-// Nothing here throws once loaded: lookups outside the map return NaN-free defaults.
+// Usage: call loadExposure() once at hello (loads ~2 ms, then warms the JIT), then
+// exposureAt / nearExposureAt / bestSpots / coverMask anywhere. Data is looked up next to the
+// bundle (/bot/data in the image: Dockerfile needs `COPY data/ ./data/`), at ../../data from this
+// source file, or in $CWD/data. Missing data logs once to stderr and the wrappers return neutral
+// values (0.5, [], false). Nothing throws after load; off-map lookups count as fully exposed.
 import { existsSync, readFileSync } from "fs";
 
 export const FLAG_GROUND = 1, FLAG_WALK = 2, FLAG_ROOF = 4, FLAG_COVER_G = 8, FLAG_COVER_R = 16;
 export const FLAG_DECK = 32, FLAG_OVERHEAD = 64, FLAG_POCKET = 128;
-const NONE_Z = -32768;
 
 export interface Spot {
   x: number;
@@ -115,7 +117,7 @@ export class ExposureMap {
   /** cell index containing (x, y), or -1 outside the grid */
   index(x: number, y: number): number {
     const i = Math.floor((x - this.x0) / this.cell), j = Math.floor((y - this.y0) / this.cell);
-    if (i < 0 || j < 0 || i >= this.nx || j >= this.ny) return -1;
+    if (!(i >= 0 && j >= 0 && i < this.nx && j < this.ny)) return -1; // also NaN
     return j * this.nx + i;
   }
 
