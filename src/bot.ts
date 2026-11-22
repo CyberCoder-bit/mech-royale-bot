@@ -6,6 +6,8 @@ import { draw, type ActorObs, type Bot, type BotAction, type Hello, type Observa
 import { aimAt, ballisticPitch, leadPoint } from "./brain/aim.ts"
 import { angDiff, clamp, dist2, dist3, rng, unit, yawTo, type V2, type V3 } from "./util/math.ts"
 import { P as PRM, type Profile } from "./params.ts"
+import { loadWorld, navFor, type NavGrid, type World } from "./world/index.ts"
+import { log } from "./mechfight.ts"
 
 const WEAPON_PREF: WeaponKind[] = PRM.weaponPref
 const UPGRADE_PREF = PRM.upgradePref
@@ -19,6 +21,16 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot {
   const sizePerCube = Number((cfg.cubes as Record<string, unknown>).size_per_cube ?? 0.05)
   const reach = cfg.loot.pickup_radius ?? 4
   const lightningCfg = cfg.weapons.lightning
+  // static map model (shared, immutable); the bot keeps working without it
+  let world: World | null = null
+  let nav: NavGrid | null = null
+  try {
+    world = loadWorld(hello.map.dir, hello.map.files)
+    nav = navFor(world)
+  } catch (e) {
+    log("world load failed", e)
+  }
+  void nav
 
   // ---- per-instance state
   let kills = 0
