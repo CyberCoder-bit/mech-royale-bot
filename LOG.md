@@ -15,3 +15,5 @@
 | 23:03 | v1 core (eb67cdd) | official result | sim said +0.8 | – | **3.00** (worse than v0 3.38: sim over-predicts hiding/holding) |
 | 23:15 | sq 4f97c93 (squad tactics on v0+world) | loot memory, focus fire + close-in, hunting, mortar dodge, reveal, LOS gating | 4.71 vs 3.21 (+1.50 ± 0.43); HK0 4.60 vs 3.29; pess 1.75 vs 1.27 | ffa 8.56 vs 10.19 (regression, gated later) | pending |
 | 23:18 | sq 4f97c93 | official result | sim predicted 4.71 / HK0 4.60 | – | **4.63** NEW BEST (entered in final) |
+| 23:28 | sim: v2 upgrade order | damage-first / mixed (gun_rate early) vs survival-first | base 4.42 ± 0.31; dmg +0.08 ± 0.36; mix +0.15 ± 0.34 | – | not submitted (noise) |
+| 23:30 | sim: v2 death analysis | mean death 80 s, none past 3:00; killed by easy 30/48; 3.6 kills/min alive | → lever = survival per kill | – | – |
