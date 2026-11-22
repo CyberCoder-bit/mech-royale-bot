@@ -20,7 +20,7 @@ export const P = {
   retreatHp: 0.35,
   retreatMargin: 0.1,
   /** Preferred fighting distance (m) by primary weapon. */
-  prefRange: { lightning: 20, laser: 110, mortar: 120, gunWithLightning: 30, gun: 70 },
+  prefRange: { lightning: 20, laser: 180, mortar: 120, gunWithLightning: 30, gun: 70 },
   /** Jink: flip strafe direction every jinkMin + rand*jinkRand seconds. */
   jinkMin: 0.45,
   jinkRand: 0.8,
@@ -74,7 +74,7 @@ export const P = {
   tgtFocus: 2,
   /** Preferred range (m) vs passive (non-attacking) targets: with lightning / gun only; 0 = same as attackers. */
   passiveRangeL: 22,
-  passiveRangeG: 35,
+  passiveRangeG: 0,
   /** Loot memory: remembered weapon pickups within this range (m) while slot 1 is empty (0 = off: visible only). */
   lootMemRange: 320,
   /** ...in FFA mode (detected): long trips across a map full of campers are risky. */
