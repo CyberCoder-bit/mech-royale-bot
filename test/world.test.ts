@@ -149,6 +149,29 @@ describe("nav", () => {
     }
     expect(tested).toBeGreaterThan(0)
   })
+  test("high bridges: walkable ground underneath and a deck on top (two layers)", () => {
+    let checked = 0
+    for (let k = 0; k < world.nPrisms; k++) {
+      if (world.pKind[k] !== 2) continue
+      const cx = (world.pMinX[k] + world.pMaxX[k]) / 2, cy = (world.pMinY[k] + world.pMaxY[k]) / 2
+      if (!world.inside2D(k, cx, cy)) continue
+      const g = world.groundZ(cx, cy)
+      const c = nav.cellOf(cx, cy)
+      if (c < 0) continue
+      const clearance = world.pBase[k] - g
+      if (clearance >= nav.height + 0.5) {
+        // ground under the deck stands free (unless a wall band), and the top layer is the deck
+        expect(nav.hz[2 * c]).toBeCloseTo(g, 0)
+        expect(nav.hz[2 * c + 1]).toBeCloseTo(world.pTop[k], 1)
+        checked++
+      } else if (clearance > 1.5 && clearance < nav.height - 0.5) {
+        // too low to walk under: the only surface is the deck (or above)
+        expect(nav.hz[2 * c] >= world.pTop[k] - 0.01 || nav.st[2 * c] !== 1).toBe(true)
+        checked++
+      }
+    }
+    expect(checked).toBeGreaterThan(0)
+  })
   test("follower produces a move toward the path", () => {
     const f = new PathFollower(nav)
     const zg = world.groundZ(300, -280)
