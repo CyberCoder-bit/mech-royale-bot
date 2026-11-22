@@ -198,8 +198,10 @@ export const P = {
    * zone logic are unchanged. With earlySafeFinish, passive mechs are engaged only when already
    * damaged (below finishHp). 15 s, 192 paired sim seeds vs v3 (0 = v3): squad -0.03 +- 0.18,
    * HK0 -0.29 +- 0.16, FFA +1.07 +- 0.35 (deaths before the FFA takeover 13 -> 7-11 of 96).
+   * On top of the cube change (sq2, 480 paired squad seeds): T15 -0.26 +- 0.11, T6 -0.11 +- 0.08 vs T0;
+   * FFA (96) vs v3: T15 +0.93 +- 0.50, T6 +0.90 +- 0.43, T0 +0.55 +- 0.24. -> 6 s.
    */
-  earlySafeT: 15,
+  earlySafeT: 6,
   /** Salt mixed into the bot's RNG seed (0 = unchanged). Variants with different salts play the same strategy with different random choices. */
   rngSalt: 0,
   earlySafeFinish: true,
