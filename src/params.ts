@@ -66,7 +66,7 @@ export const P = {
   /** Torso scan amplitude (rad) while hunting/travelling. */
   scanAmp: 0.9,
   /** Supply drops: go capture one within this range (m); 0 = off. Arrive no earlier than this before landing (s). */
-  dropRange: 0,
+  dropRange: 400,
   dropEarlyS: 4,
   /** ...also while fighting when the drop is this close (m). */
   dropFightRange: 90,
