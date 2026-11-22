@@ -101,6 +101,9 @@ export const P = {
   laserSwitchS: 0.12,
   /** Fight: walk over visible cubes within this range (m) while fighting (0 = off). */
   cubeGrab: 30,
+  /** Cube memory: remember seen cubes and our kill spots this long (s; 0 = off) and walk to them within this range (m) between fights. */
+  cubeMemS: 45,
+  cubeMemRange: 140,
   /** Idle (not hunting): wait at the lowest-exposure spot within this radius (m; 0 = off), re-chosen every holdRefresh s. */
   holdR: 0,
   holdRefresh: 20,

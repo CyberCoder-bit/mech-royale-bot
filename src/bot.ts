@@ -157,6 +157,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   let xfPt: V3 | null = null
   let xfUntil = -1
   const pickMem = new Map<number, { kind: WeaponKind; pos: V3; t: number }>()
+  /** cubes we saw ("c"+id) and where our kills fell ("k"+id): kill drops are worth +HP, +damage and upgrades */
+  const cubeMem = new Map<string, { pos: V3; t: number }>()
   let soundPt: { x: number; y: number; t: number } | null = null
   let mode = "idle"
 
@@ -219,6 +221,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           lastDealT = t
         } else if (ev.type === "kill") {
           kills++
+          const kt = tracks.get(ev.target)
+          if (kt && PRM.cubeMemS > 0) cubeMem.set("k" + ev.target, { pos: [kt.pos[0], kt.pos[1], kt.pos[2]], t })
           tracks.delete(ev.target)
           if (curTarget === ev.target) curTarget = null
         }
@@ -316,6 +320,18 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           pickMem.set(p.id, { kind: p.kind, pos: [p.pos[0], p.pos[1], p.pos[2]], t })
         }
         for (const [id, pm] of pickMem) if (!seen.has(id) && dist2(P, pm.pos) < 30 && Math.abs(pm.pos[2] - P[2]) < 5) pickMem.delete(id)
+      }
+      // cubes: remember what we saw; forget old entries and what should be in view here but is not listed
+      if (PRM.cubeMemS > 0) {
+        const seenC = new Set<string>()
+        for (const c of obs.cubes ?? []) {
+          seenC.add("c" + c.id)
+          cubeMem.set("c" + c.id, { pos: [c.pos[0], c.pos[1], c.pos[2]], t })
+        }
+        for (const [id, cm] of cubeMem) {
+          const near = dist2(P, cm.pos) < (id[0] === "k" ? 10 : 6) && Math.abs(cm.pos[2] - P[2]) < 5
+          if (t - cm.t > PRM.cubeMemS || (near && !seenC.has(id))) cubeMem.delete(id)
+        }
       }
       const noSlot1 = !me.weapons[1] && !(me.weapons[0] && me.weapons[0].kind !== "gun")
       let knownWeapon = false
@@ -641,6 +657,14 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           for (const c of obs.cubes ?? []) {
             const d = dist2(P, c.pos)
             if (d < best && safeHere(c.pos) && Math.abs(c.pos[2] - P[2]) < 25) (best = d), (goal = [c.pos[0], c.pos[1]]), (goalDist = d), (goalZ = c.pos[2]), (mode = "cube")
+          }
+          // remembered cubes and kill spots, farther out (squad play: one hunter at a time, the cubes are ours)
+          if (sq && PRM.cubeMemS > 0 && PRM.cubeMemRange > 0) {
+            let bm = goal ? best : PRM.cubeMemRange
+            for (const cm of cubeMem.values()) {
+              const d = dist2(P, cm.pos)
+              if (d < bm && safeHere(cm.pos) && Math.abs(cm.pos[2] - P[2]) < 25) (bm = d), (goal = [cm.pos[0], cm.pos[1]]), (goalDist = d), (goalZ = cm.pos[2]), (mode = "cube")
+            }
           }
           const wantWeapon = !me.weapons[1] || (me.weapons[1] && WEAPON_PREF.indexOf(me.weapons[1].kind) > 0)
           if (wantWeapon) {
