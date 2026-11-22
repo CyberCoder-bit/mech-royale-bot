@@ -34,3 +34,5 @@
 | 00:58 | SCORER RESET | all earlier Mech Royale scores now 'Scored under a previous version'; board shows 2 teams; baseline 1.15 → 1.13; kit + protocol unchanged; final pick cleared | – | – | resubmitting v3 (BB-CE149C78) |
 | 01:02 | v3 1a98685 (new scorer) | resubmitted after the reset | – | – | **5.10** (was 5.04); board top 5.96, we're ~#10 of 18 (team 'Carmel High School'?) |
 | 01:03 | earlysafe bd23fa7 | v3 + earlySafeT 15 (no fights with healthy passives in first 15 s) | 192 seeds: −0.03 ± 0.18 default, −0.29 ± 0.16 HK0 | ffa +1.07 ± 0.35 | pending (new scorer) |
+| 01:13 | earlysafe bd23fa7 | official (new scorer) | – | – | **5.10** (= v3) → PICKED as final entry (better FFA) |
+| 01:13 | v4 ecb87e1 | merge of sq2 4584e63 (cube grab 45 + boost; 480 seeds +0.20 ± 0.09, HK0 +0.27 ± 0.12) + earlySafeT 15 | 48 seeds +0.02 ± 0.44 vs v3 (noise) | – | pending |
