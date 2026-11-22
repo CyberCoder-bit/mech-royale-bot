@@ -14,7 +14,7 @@ import { angDiff, clamp, dist2, dist3, rng, unit, yawTo, type V2, type V3 } from
 import { P as PRM, type Profile } from "./params.ts"
 import { loadWorld, navFor, PathFollower, type NavGrid, type World } from "./world/index.ts"
 import { makeBotV0 } from "./bot_v0.ts"
-import { bestSpots, loadExposure } from "./expo/exposure.ts"
+import { bestSpots, coverMask, loadExposure } from "./expo/exposure.ts"
 
 type Primary = "gun" | "laser" | "lightning" | "mortar"
 type Mode = "fight" | "pursue" | "retreat" | "evade" | "heal" | "zone" | "loot" | "idle"
@@ -708,6 +708,23 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
     if (!desired && attention && t - attention.t < 3) desired = [attention.yaw + Math.sin(scanPhase) * 0.3, 0]
     if (!desired && t < PRM.openScanS) desired = [me.aim[0] + 1.5, -0.05] // look all around once: find loot
     if (!desired && Q.idleSpin > 0) desired = [me.aim[0] + Q.idleSpin, -0.05] // keep turning: spot hunters at 200 m before they spot us
+    if (!desired && Q.holdFaceOpen && hold && Math.hypot(hold.x - P[0], hold.y - P[1]) < 4) {
+      // waiting at a hold spot: watch the open side (walls cover the rest), sweeping a little
+      const mask = coverMask(P[0], P[1], P[2])
+      if (mask && mask !== 255) {
+        let best = -1, bestRun = -1
+        for (let k = 0; k < 8; k++) {
+          if (mask & (1 << k)) continue
+          let run = 0
+          for (let j = -2; j <= 2; j++) if (!(mask & (1 << ((k + j + 8) % 8)))) run += j === 0 ? 2 : 1
+          if (run > bestRun) (bestRun = run), (best = k)
+        }
+        if (best >= 0) {
+          scanPhase += 0.08
+          desired = [(best * Math.PI) / 4 + Math.sin(scanPhase) * 0.9, -0.05]
+        }
+      }
+    }
     if (!desired) {
       scanPhase += 0.12
       const base = Math.hypot(move[0], move[1]) > 0.5 ? Math.atan2(move[1], move[0]) : me.aim[0]

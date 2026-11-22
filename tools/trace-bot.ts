@@ -12,12 +12,34 @@ export function makeBot(hello: Hello, profile?: string) {
   const world = loadWorld(hello.map.dir, hello.map.files)
   const every = Number(process.env.TRACE_EVERY ?? 0.5)
   let next = 0
+  // accuracy bookkeeping: shots = gun ammo drops, hits = hit events on mechs (ids < 100)
+  let lastAmmo = -1, shots = 0, hitsMech = 0, hitsOther = 0, laserShots = 0, laserHits = 0, lastLaserCd = 0
+  const quiet = process.env.TRACE_QUIET === "1"
+  let acc = "", lastAccLine = ""
+  process.on("exit", () => console.error(lastAccLine))
   return {
     name: b.name,
     act(o: Observation) {
       const a = b.act(o)
       const d = draw.take()
-      if (o.t >= next) {
+      const gun = o.self.weapons.find((w) => w?.kind === "gun")
+      if (gun && gun.ammo !== undefined) {
+        if (lastAmmo >= 0 && gun.ammo < lastAmmo) shots += lastAmmo - gun.ammo
+        lastAmmo = gun.ammo
+      }
+      const las = o.self.weapons.find((w) => w?.kind === "laser")
+      if (las) {
+        if (las.cooldown > lastLaserCd + 0.5) laserShots++
+        lastLaserCd = las.cooldown
+      }
+      for (const e of o.events ?? []) {
+        if (e.type !== "hit") continue
+        if (e.weapon === "gun") e.target < 100 ? hitsMech++ : hitsOther++
+        if (e.weapon === "laser" && e.target < 100) laserHits++
+      }
+      if (Math.floor(o.t / 10) !== Math.floor((o.t - 0.1) / 10)) acc = `ACC seed? t=${o.t.toFixed(0)} gun shots ${shots} mech hits ${hitsMech} other ${hitsOther} | laser shots ${laserShots} mech hits ${laserHits}`
+      lastAccLine = `ACCNOW gun ${shots} ${hitsMech} ${hitsOther} laser ${laserShots} ${laserHits}`
+      if (!quiet && o.t >= next) {
         next = o.t + every - 1e-9
         const me = o.self
         const near = o.mechs
