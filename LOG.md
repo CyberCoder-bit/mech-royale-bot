@@ -49,3 +49,4 @@
 | 02:56 | final-s2eg 38e9fc2 | salt 2 + FFA endgame (3cd57ff); squad actions identical | – | ffa +0.06, win 33→41% | pending; top-32 line now 5.77 |
 | 03:01 | final-s2eg 38e9fc2 | official | squad actions identical on stream | – | **4.92** (vs salt 2 5.22): wall-time-capped planning makes real runs path-dependent; re-picked salt 2 (BB-327713BA, 5.22) as final entry |
 | 03:01 | lightning-first 1e814e2 | final-s2eg + weaponPref lightning > laser > mortar (house lasers did 76% of real damage; lightning shorts lasers) | – | – | pending (real A/B) |
+| 03:04 | squad-ceiling 06707d6 | low-ceiling fix in squad path follower | −0.01 ± 0.00 (480), aim0.6 −0.00 | – | not shipped; stuck time is mostly failed roof-loot climbs (~2 s/match) |
