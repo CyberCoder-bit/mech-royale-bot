@@ -385,7 +385,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
         hold = null
         try {
           const spots = bestSpots([P[0], P[1]], Q.holdRadius, 3, {
-            avoid: known.map((e) => e.pos), avoidRadius: 50, minSpacing: 8,
+            avoid: known.map((e) => e.pos), avoidRadius: 50, minSpacing: 8, roofs: Q.holdRoofs,
             penalty: (x, y) => Math.hypot(x - P[0], y - P[1]) * Q.holdDistCost + (inGoalZone(x, y) ? 0 : 1),
           })
           if (spots.length && inGoalZone(spots[0].x, spots[0].y)) hold = { x: spots[0].x, y: spots[0].y, z: spots[0].z, t }
@@ -394,7 +394,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
         }
       }
       if (hold && Math.hypot(hold.x - P[0], hold.y - P[1]) > 2) {
-        goTo(hold.x, hold.y, hold.z, 2, 3)
+        goTo(hold.x, hold.y, hold.z, 2, Q.holdRoofs && !known.length ? 50 : 3)
         goalLabel = "hold"
       } else {
         move = [0, 0]
@@ -540,7 +540,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
       if (dropGoal && !zoneUrgent) {
         goTo(dropGoal[0], dropGoal[1], dropGoal[2], 2.5)
         goalLabel = "drop"
-      } else if (goal) goTo(goal[0], goal[1], goal[2], tol)
+      } else if (goal) goTo(goal[0], goal[1], goal[2], tol, known.length ? 2 : 50)
       else if (farmTarget()) {
         // approach to a comfortable shooting distance, then stand and shoot
         const f = farmTarget()!

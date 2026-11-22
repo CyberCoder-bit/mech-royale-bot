@@ -98,6 +98,8 @@ export const P = {
   ffaOverrides: { healHp: 0.9 } as Record<string, unknown>,
   /** Idle (no threat, no sound): spin the torso this far ahead each decision (rad; 0 = sweep around the move direction). */
   idleSpin: 0,
+  /** Hold spots may be reachable roofs (jet up when nobody is around). */
+  holdRoofs: false,
   /** At a hold spot, watch the open side (exposure map cover mask) instead of sweeping around. */
   holdFaceOpen: false,
   /** Pre-charge the laser when an enemy was seen within 1.5 s inside this range (m), for a full first shot. 0 = off. */
