@@ -96,6 +96,8 @@ export const P = {
   crossfireN: 2,
   /** Overrides applied once FFA (the final's format) is detected: avoid fights, hide and heal. */
   ffaOverrides: { healHp: 0.9 } as Record<string, unknown>,
+  /** Seek remembered NPC drones (2 cubes each) within this range (m) when healthy and idle. 0 = off. */
+  npcSeekRange: 0,
   /** Idle (no threat, no sound): spin the torso this far ahead each decision (rad; 0 = sweep around the move direction). */
   idleSpin: 0,
   /** Hold spots may be reachable roofs (jet up when nobody is around). */

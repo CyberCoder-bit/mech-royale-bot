@@ -102,6 +102,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
   // remembered loot: weapon pickups and crates stay put until taken or destroyed
   const pickMem = new Map<number, { kind: WeaponKind; pos: V3; t: number }>()
   const crateMem = new Map<number, { pos: V3; t: number }>()
+  // NPC drones wander within ~30 m of home: remember where we saw them (2 cubes each)
+  const npcMem = new Map<number, { pos: V3; t: number; hp: number }>()
   // engagement memory: keep fighting (peek after reload, chase the wounded) instead of dropping to heal
   let engagedId = -1
   let engagedLosT = -99
@@ -196,6 +198,9 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
       }
       for (const [id, m] of pickMem) if (!seenP.has(id) && (t - m.t > 120 || gone(m.pos))) pickMem.delete(id)
       for (const [id, m] of crateMem) if (!seenC.has(id) && (t - m.t > 120 || gone(m.pos))) crateMem.delete(id)
+      for (const m of obs.mechs) if (m.kind === "npc") npcMem.set(m.id, { pos: [m.pos[0], m.pos[1], m.pos[2]], t, hp: m.hp ?? 350 })
+      for (const ev of obs.events ?? []) if (ev.type === "kill") npcMem.delete(ev.target)
+      for (const [id, m] of npcMem) if (t - m.t > 90 || (t - m.t > 1 && Math.hypot(m.pos[0] - P[0], m.pos[1] - P[1]) < 20)) npcMem.delete(id)
     }
 
     // weapons
@@ -262,6 +267,16 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
     }
     const seenBy = enemies.filter((e) => e.threatLos)
 
+    /** a remembered NPC drone to go farm (cubes) when healthy and nobody is around */
+    function rememberedNpc(): V3 | null {
+      if (profile !== "fighter" || enemies.length || hpFrac < PRM.farmNpcHp || Q.npcSeekRange <= 0) return null
+      let best: V3 | null = null, bd = Q.npcSeekRange
+      for (const [, n] of npcMem) {
+        const d = dist2(P, n.pos)
+        if (d < bd && inGoalZone(n.pos[0], n.pos[1]) && Math.abs(n.pos[2] - P[2]) < 30) (bd = d), (best = n.pos)
+      }
+      return best
+    }
     function rememberedCrate(): V3 | null {
       if (profile !== "fighter" || enemies.length) return null
       let best: V3 | null = null, bd = PRM.farmRange + 10
@@ -552,6 +567,10 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
         const c = rememberedCrate()!
         goTo(c[0], c[1], c[2], 12)
         goalLabel = "crate"
+      } else if (rememberedNpc()) {
+        const n = rememberedNpc()!
+        goTo(n[0], n[1], n[2], 30, 3)
+        goalLabel = "npc"
       } else if (needZone) zoneMove()
       else holdSpot()
     }
