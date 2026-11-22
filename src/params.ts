@@ -179,6 +179,10 @@ export const P = {
   lastStandHp: 0,
   /** Hunt: distance penalty (m) for remembered mechs that have shot at us (prefer passive ones; 0 = off). */
   huntAtkPen: 0,
+  /** Fight-cube / fight-weapon: weight of the strafe component while walking to the item. */
+  cubePerp: 0.4,
+  /** Squad: walk (boost as for cubes) to a better slot-1 weapon within this range (m) while fighting (0 = off). */
+  weaponGrab: 0,
   /**
    * Early safety posture (0 = off): before this match time, and while no FFA is detected, don't close
    * in on non-attacking mechs (no chase, no approach, no hunting); attackers are still fought, loot and

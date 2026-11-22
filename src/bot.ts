@@ -694,8 +694,26 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
             if (bc) {
               mode = "fight-cube"
               const tc = norm2([bc[0] - P[0], bc[1] - P[1]])
-              move = norm2([tc[0] * 1.5 + perp[0] * 0.4, tc[1] * 1.5 + perp[1] * 0.4])
+              move = norm2([tc[0] * 1.5 + perp[0] * PRM.cubePerp, tc[1] * 1.5 + perp[1] * PRM.cubePerp])
               if (PRM.cubeBoostE > 0 && sq && me.energy > PRM.cubeBoostE + (lightW && tDist < 70 ? 40 : 0) && bd > 6) boost = true // less time on a predictable line
+            }
+          }
+          // squad: a better slot-1 weapon lying close by (a kill drop, a crate's) is worth a detour mid-fight
+          if (PRM.weaponGrab > 0 && sq) {
+            let bw: ArrayLike<number> | null = null, bdw = PRM.weaponGrab
+            const cur = me.weapons[1]?.kind
+            for (const p of obs.pickups ?? []) {
+              if (p.kind === "gun" || slotOf(p.kind) >= 0 || WEAPON_PREF.indexOf(p.kind) < 0) continue
+              if (cur && WEAPON_PREF.indexOf(p.kind) >= WEAPON_PREF.indexOf(cur)) continue
+              const dw = dist2(P, p.pos)
+              if (dw < bdw && Math.abs(p.pos[2] - P[2]) < 3.5 && safeHere(p.pos)) (bdw = dw), (bw = p.pos)
+            }
+            if (bw) {
+              mode = "fight-weapon"
+              const tw = norm2([bw[0] - P[0], bw[1] - P[1]])
+              move = norm2([tw[0] * 1.5 + perp[0] * PRM.cubePerp, tw[1] * 1.5 + perp[1] * PRM.cubePerp])
+              if (bdw < 2.5) move = [tw[0] * 0.3, tw[1] * 0.3]
+              if (PRM.cubeBoostE > 0 && me.energy > PRM.cubeBoostE + (lightW && tDist < 70 ? 40 : 0) && bdw > 6) boost = true
             }
           }
         }
