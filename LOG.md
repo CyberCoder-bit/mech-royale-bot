@@ -58,3 +58,5 @@
 | 03:15 | v3es salt 4 8a093b3 | bd23fa7 + rngSalt 4 | – | – | pending |
 | 03:23 | v3es salt 4 8a093b3 | official | – | – | **4.94** |
 | 03:23 | evasion ed2ee0b | bd23fa7 + fight boost, jink 0.3+0.5, lateral mortar dodge, no retreat (squad only) | 480 seeds: default +0.38 ± 0.10, aim0.6 +0.35 ± 0.09 (all blocks +) | ffa: v3 values | pending (real A/B) |
+| 03:28 | evasion ed2ee0b | official | sim +0.38 default / +0.35 aim0.6 | ffa ≈ 0 | **5.04** (noise band): evasion doesn't transfer → hypothesis: real damage is laser-dominated (hitscan, undodgeable) |
+| 03:28 | duck10 dc11857 | salt 2 + duckR 10 (break LOS on laser charge) | sim: no help earlier | – | queued for next slot (~03:56) |
