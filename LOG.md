@@ -48,3 +48,4 @@
 | 02:56 | v3es salt 2 d65b7cf | bd23fa7 + rngSalt 2 | – | – | **5.22** NEW BEST (salts: 5.10 / 5.04 / 5.22) |
 | 02:56 | final-s2eg 38e9fc2 | salt 2 + FFA endgame (3cd57ff); squad actions identical | – | ffa +0.06, win 33→41% | pending; top-32 line now 5.77 |
 | 03:01 | final-s2eg 38e9fc2 | official | squad actions identical on stream | – | **4.92** (vs salt 2 5.22): wall-time-capped planning makes real runs path-dependent; re-picked salt 2 (BB-327713BA, 5.22) as final entry |
+| 03:01 | lightning-first 1e814e2 | final-s2eg + weaponPref lightning > laser > mortar (house lasers did 76% of real damage; lightning shorts lasers) | – | – | pending (real A/B) |
