@@ -1,0 +1,17 @@
+/** Cold-start breakdown: bun tools/sq-init.ts */
+const t0 = performance.now()
+const W = await import("../src/world/index.ts")
+const t1 = performance.now()
+const w = W.loadWorld("kit/arena", ["v2/world.json", "v2/terrain.i16"])
+const t2 = performance.now()
+const nav = W.navFor(w)
+const t3 = performance.now()
+const { makeBot } = await import("../src/bot.ts")
+const { gunzipSync } = await import("node:zlib")
+const { readFileSync } = await import("node:fs")
+const hello = JSON.parse(gunzipSync(readFileSync("kit/check/stream.jsonl.gz")).toString().split("\n")[0])
+hello.map.dir = "kit/arena"
+const t4 = performance.now()
+makeBot(hello)
+const t5 = performance.now()
+console.log(`import ${(t1 - t0).toFixed(0)} ms, loadWorld ${(t2 - t1).toFixed(0)} ms, nav ${(t3 - t2).toFixed(0)} ms (${nav.N} nodes), makeBot (cached world, warm-up) ${(t5 - t4).toFixed(0)} ms`)
