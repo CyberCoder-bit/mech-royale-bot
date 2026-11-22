@@ -86,3 +86,4 @@
 | 10:16 | norun a4ce230 (on robust) | retreatHp 0 | – | – | **4.98** (noise band) |
 | 10:20 | STOP | user: no more submissions. Final pick unchanged: BB-327713BA = d65b7cf (5.22). Unsubmitted, gated + pushed: backopen d8dd412, antilight d1f53e3, nanites e1048bf, faceonly 3c303ed, combo f47f70d, loot120 5953fd3, armor 97205cf, r180norun 6a6b9d6, r180caution e89db93 | – | – | – |
 | 10:17 | antilight d1f53e3 (on robust) | hold ≥60 m from lightning carriers, steer away inside it (idea from the #1 team's public docs) | aim0.6 −0.11 ± 0.07 | – | not submitted |
+| 10:25 | apexlike 43f6f76 (on robust, not submitted) | antilight + backopen + laser-cooldown target window (seen beams / laser hits, 2 s) + lethal early laser release (partial charge that kills, x1.5 rear, cook-off, 0.85 margin) | aim0.6 +0.13 ± 0.12 (192), −0.06 ± 0.07 (480); C4 −0.24 ± 0.18 | ffa −0.11 ± 0.37 | not submitted (user) — sim neutral |
