@@ -70,4 +70,11 @@
 | 04:06 | screen C2 bbc3b8d | submitted | – | – | pending |
 | 04:10 | roof A 7d9795c / B 8e4d23b (on d65b7cf) | refuge (<50% HP heal on a roof ≤110 m) / + idle on roof | 48 seeds +0.23 ± 0.24 / +0.25 ± 0.30 (noise) | squad-gated | queued after C2 |
 | 04:15 | screen C2 bbc3b8d | official | sim +0.26 / aim0.6 +0.21 (960 seeds) | – | **4.92** (noise band) |
-| 04:15 | roof A 7d9795c | submitted | – | – | pending |
+| 04:15 | roof A 7d9795c | official | sim +0.23 ± 0.24 (48) | – | **4.75** (roof refuge hurts) |
+| 09:07 | robust 247f67e (on d65b7cf) | wrapper keeps events of collapsed obs (kills/hits were lost when obs queued) + FFA flag from deaths only (ffaHpDrop 0: house friendly fire / lost hits could fake FFA evidence and switch off hunting) | squad +0.01 ± 0.02 (96) | ffa −0.27 ± 0.34 (96) | **4.95** (noise band: false-FFA-flag hypothesis not confirmed) |
+| 09:13 | drops 712caaf (on robust) | capture supply drops ≤400 m in squad play | sim −0.13 ± 0.07 (192) | – | **4.97** (noise band) |
+| 09:16 | aggro 53cf73c (on robust) | hunt from 45% HP + boost on long hunting trips | sim −0.13 ± 0.19 | – | **5.06** (noise band) |
+| 09:18 | cubemem 13314ab (on robust) | remember seen cubes + kill spots 45 s, collect ≤140 m between fights | sim +0.17 ± 0.11 (192), max cubes 5.6 → 5.9 | – | **5.07** (noise band) |
+| 09:20 | real-stream check | recording bot gun acc 42% at 100–150 m (sim: ours 82%); damage taken laser 1260 vs gun 405 → real fights are laser duels | – | – | – |
+| 09:22 | duck c04bd34 (on robust) | duckR 10: cover within 10 m when a laser charges at us | C4 +0.12 ± 0.04 (480, earlier) | – | **4.63** (−0.32: defensive tactics keep losing in reality) |
+| 09:28 | gdc a2d6a65 (on robust) | gun fires at its lead point while the laser charges | C4 +0.13 ± 0.13, aim0.6 +0.10 ± 0.09 | – | **4.88** (noise band) |
