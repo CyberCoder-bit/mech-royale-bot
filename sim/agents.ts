@@ -4,7 +4,8 @@
  */
 import type { BotAction, Hello, Observation, Bot } from "../src/mechfight.ts"
 import { ROOT } from "./config.ts"
-import { resolve } from "node:path"
+import { resolve, dirname, join } from "node:path"
+import { existsSync } from "node:fs"
 
 export interface Agent {
   name: string
@@ -207,18 +208,28 @@ export class ProcAgent implements Agent {
 
 // ------------------------------------------------------------------ in-process
 type Factory = (hello: Hello, profile?: string) => Bot
-const factoryCache = new Map<string, Factory>()
+type DrawLike = { clear?: () => void; caps?: unknown }
+const factoryCache = new Map<string, { f: Factory; draw: DrawLike | null }>()
 
-export async function loadFactory(path: string): Promise<Factory> {
+/** load makeBot from a module; also find its mechfight `draw` singleton so in-process drawings can be discarded */
+export async function loadFactory(path: string): Promise<{ f: Factory; draw: DrawLike | null }> {
   const abs = resolve(ROOT, path)
-  let f = factoryCache.get(abs)
-  if (!f) {
+  let e = factoryCache.get(abs)
+  if (!e) {
     const mod = await import(abs)
-    f = (mod.makeBot ?? mod.default?.makeBot ?? mod.default) as Factory
+    const f = (mod.makeBot ?? mod.default?.makeBot ?? mod.default) as Factory
     if (typeof f !== "function") throw new Error(`${path} does not export makeBot`)
-    factoryCache.set(abs, f)
+    let draw: DrawLike | null = mod.draw ?? null
+    const mf = join(dirname(abs), "mechfight.ts")
+    if (!draw && existsSync(mf)) {
+      try {
+        draw = (await import(mf)).draw ?? null
+      } catch {}
+    }
+    e = { f, draw }
+    factoryCache.set(abs, e)
   }
-  return f
+  return e
 }
 
 export class InprocAgent implements Agent {
@@ -235,9 +246,12 @@ export class InprocAgent implements Agent {
     this.profile = profile
     this.name = name ?? `inproc:${path}${profile ? "@" + profile : ""}`
   }
+  draw: DrawLike | null = null
   async init(hello: Hello): Promise<boolean> {
     try {
-      const f = await loadFactory(this.path)
+      const { f, draw } = await loadFactory(this.path)
+      this.draw = draw
+      if (draw) draw.caps = hello.config.debug
       this.bot = this.profile !== undefined ? f(hello, this.profile) : f(hello)
       return true
     } catch (e) {
@@ -249,7 +263,9 @@ export class InprocAgent implements Agent {
   act(obs: Observation): BotAction {
     if (!this.bot) return {}
     try {
+      this.draw?.clear?.()
       const a = { ...this.bot.act(obs) }
+      this.draw?.clear?.()
       this.last = { move: a.move, aim: a.aim, boost: a.boost }
       a.tick = obs.tick
       return a

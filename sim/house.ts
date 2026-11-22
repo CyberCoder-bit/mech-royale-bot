@@ -48,11 +48,24 @@ export interface HouseTuning {
   lead_mul: number
   /** house bots hop (jump + jet) while fighting with this probability per second */
   hop_rate: number
+  /** fraction of time the trigger is actually held when a shot is available (burst windows) */
+  fire_duty: number
+  /** multiplies retreat_hp_frac (0 = never retreat; the replay shows no HP-triggered retreat) */
+  retreat_mul: number
 }
-export const DEFAULT_TUNING: HouseTuning = { aim_mul: 1, react_mul: 1, lead_mul: 1, hop_rate: 0 }
+export const DEFAULT_TUNING: HouseTuning = { aim_mul: 1, react_mul: 1, lead_mul: 1, hop_rate: 0, fire_duty: 1, retreat_mul: 1 }
 
 /** sim-only behaviour knobs per archetype (archetypes.json values win when present) */
 const SIM_EXTRAS: Record<string, Partial<Archetype>> = {
+  // other teams' bots in the final (docs/top-bots-ffa.md: 76.5% gun hit rate, 0.2 s reaction, still 43%, boost 8.5%)
+  top: {
+    reaction_s: 0.2, aim_sigma_deg: 0.7, lead_frac: 0.95,
+    fire_range_m: { gun: 200, laser: 240, mortar: 200, lightning: 44 },
+    preferred_range_m: 90, retreat_hp_frac: 0.35, strafe: 0.35, boost_frac: 0.08,
+    loot_weapon_first: true, weapon_pref: ["laser", "lightning", "mortar"], farm_cubes: true,
+    upgrade_pref: ["plating", "armor", "nanites", "gun_damage", "laser_damage", "gun_rate"],
+    engage_range_m: 180, use_drops: true,
+  },
   thirdparty: { third_party: true, aggression: 0.4 },
   farmer: { aggression: 0.3, use_drops: true },
   expert: { use_drops: true },
@@ -197,15 +210,19 @@ export class HouseAgent implements Agent {
   bridgePt: [number, number] | null = null
   climbState = 0
   climbT = 0
+  burstOn = true
+  burstT = 0
+  hopUntil = 0
   zoneLockUntil = 0
   tune: HouseTuning
   constructor(arch: string, squad: SquadController | null, team: number, tune: Partial<HouseTuning> = {}) {
     const A = loadArchetypes()
-    const real = A.archetypes[arch] ? arch : A.tiers[arch] ?? "expert"
+    const real = A.archetypes[arch] || SIM_EXTRAS[arch]?.reaction_s !== undefined ? arch : (A.tiers[arch] ?? "expert")
     this.archName = arch
     this.tune = { ...DEFAULT_TUNING, ...tune }
-    const base = { ...(SIM_EXTRAS[real] ?? {}), ...(A.archetypes[real] ?? A.archetypes.expert) } as Archetype
-    this.a = { ...base, aim_sigma_deg: base.aim_sigma_deg * this.tune.aim_mul, reaction_s: base.reaction_s * this.tune.react_mul, lead_frac: Math.min(1, base.lead_frac * this.tune.lead_mul) }
+    const full = SIM_EXTRAS[real]?.reaction_s !== undefined
+    const base = { ...(full ? {} : A.archetypes.expert), ...(SIM_EXTRAS[real] ?? {}), ...(A.archetypes[real] ?? {}) } as Archetype
+    this.a = { ...base, aim_sigma_deg: base.aim_sigma_deg * this.tune.aim_mul, reaction_s: base.reaction_s * this.tune.react_mul, lead_frac: Math.min(1, base.lead_frac * this.tune.lead_mul), retreat_hp_frac: base.retreat_hp_frac * this.tune.retreat_mul }
     this.name = `house:${arch}`
     this.squad = squad
     this.team = team
@@ -749,7 +766,26 @@ export class HouseAgent implements Agent {
       const g = W[gu] as WeaponObs
       if ((g.reload ?? 0) === 0 && kind !== "laser" && yawErr < tol * 1.5 && pitchErr < tol * 1.5 && kind !== "mortar") fire[gu] = true
     }
+    // burst windows: a share (fire_duty) of the time the bot actually pulls the trigger
+    if (t >= this.burstT) {
+      this.burstOn = this.rng.next() < this.tune.fire_duty
+      this.burstT = t + 0.6 + this.rng.next() * 0.9
+    }
+    if (!this.burstOn) {
+      for (let i = 0; i < 2; i++) {
+        const w = W[i] as WeaponObs | null
+        // never drop a laser charge that is already building
+        if (w && w.kind === "laser" && (w.charge ?? 0) > 0) continue
+        fire[i] = false
+      }
+    }
     act.fire = fire
+    // hop while fighting
+    if (this.tune.hop_rate > 0 && s.grounded && this.rng.next() < this.tune.hop_rate * 0.1) {
+      act.jump = true
+      this.hopUntil = t + 0.6 + this.rng.next() * 0.8
+    }
+    if (t < this.hopUntil && !s.grounded && s.energy > 30) act.boost = true
     void mv
   }
 }

@@ -101,7 +101,10 @@ export async function runMatch(spec: MatchSpec): Promise<MatchResult> {
   for (let i = 0; i < N; i++) {
     match.mechs[i].name = agents[i].name
     if (!ok[i]) match.mechs[i].stats.crashed = true
-    if (agents[i] instanceof HouseAgent) (agents[i] as HouseAgent).attach(match, match.mechs[i])
+    if (agents[i] instanceof HouseAgent) {
+      ;(agents[i] as HouseAgent).attach(match, match.mechs[i])
+      match.mechs[i].lite = true
+    }
   }
   squad?.attach(match)
   const budget = spec.budgetMs ?? cfg.bot.tick_budget_ms ?? 50

@@ -99,6 +99,10 @@ export class Mech {
   pendingDying = false
   dmgFrom: number | null = null
   dmgWeapon: string | null = null
+  /** in-process house bot: skip projectile/beam perception (unused) and refresh item visibility every 3rd decision */
+  lite = false
+  itemCacheT = -99
+  itemVis: { crates: Set<number>; cubes: Set<number>; pickups: Set<number> } = { crates: new Set(), cubes: new Set(), pickups: new Set() }
   // stuck detection
   stuckRefT = 0
   stuckRefX = 0
@@ -1752,7 +1756,7 @@ export class Match {
           k.events.push({ type: "kill", target: m.id } as GameEvent)
         }
       }
-      this.ev({ e: "death", id: m.id, by: m.killedBy })
+      this.ev({ e: "death", id: m.id, by: m.killedBy, place })
       this.sound("death", m.x, m.y, m.id)
       // drops: cubes + extra, weapons except gun
       const extra = (this.cfg.cubes.death_drop_extra as number) ?? 2
@@ -1928,20 +1932,29 @@ export class Match {
       mechs.push(a)
     }
     const projectiles: any[] = []
-    for (const p of this.projs) {
-      if (p.owner === m.id) continue
-      if (this.canSee(m, ex, ey, ez, p.x, p.y, p.z, p.z)) projectiles.push({ id: p.id, kind: p.kind, pos: [r2(p.x), r2(p.y), r2(p.z)], vel: [r2(p.vx), r2(p.vy), r2(p.vz)] })
+    if (!m.lite)
+      for (const p of this.projs) {
+        if (p.owner === m.id) continue
+        if (this.canSee(m, ex, ey, ez, p.x, p.y, p.z, p.z)) projectiles.push({ id: p.id, kind: p.kind, pos: [r2(p.x), r2(p.y), r2(p.z)], vel: [r2(p.vx), r2(p.vy), r2(p.vz)] })
+      }
+    const ch = this.cfg.crates.height ?? 2.4
+    const refresh = !m.lite || this.t - m.itemCacheT > 0.25
+    const iv = m.itemVis
+    if (refresh) {
+      m.itemCacheT = this.t
+      iv.crates.clear()
+      iv.cubes.clear()
+      iv.pickups.clear()
+      for (const c of this.crates) if (c.alive && this.canSee(m, ex, ey, ez, c.x, c.y, c.z + ch * 0.5, c.z + ch)) iv.crates.add(c.id)
+      for (const c of this.cubes) if (this.canSee(m, ex, ey, ez, c.x, c.y, c.z + 0.5, c.z + 1)) iv.cubes.add(c.id)
+      for (const p of this.pickups) if (this.canSee(m, ex, ey, ez, p.x, p.y, p.z + 0.5, p.z + 1)) iv.pickups.add(p.id)
     }
     const crates: any[] = []
-    const ch = this.cfg.crates.height ?? 2.4
-    for (const c of this.crates) {
-      if (!c.alive) continue
-      if (this.canSee(m, ex, ey, ez, c.x, c.y, c.z + ch * 0.5, c.z + ch)) crates.push({ id: c.id, pos: [r2(c.x), r2(c.y), r2(c.z)], hp: r2(c.hp) })
-    }
+    for (const c of this.crates) if (c.alive && iv.crates.has(c.id)) crates.push({ id: c.id, pos: [r2(c.x), r2(c.y), r2(c.z)], hp: r2(c.hp) })
     const cubes: any[] = []
-    for (const c of this.cubes) if (this.canSee(m, ex, ey, ez, c.x, c.y, c.z + 0.5, c.z + 1)) cubes.push({ id: c.id, pos: [r2(c.x), r2(c.y), r2(c.z)] })
+    for (const c of this.cubes) if (iv.cubes.has(c.id)) cubes.push({ id: c.id, pos: [r2(c.x), r2(c.y), r2(c.z)] })
     const pickups: any[] = []
-    for (const p of this.pickups) if (this.canSee(m, ex, ey, ez, p.x, p.y, p.z + 0.5, p.z + 1)) pickups.push({ id: p.id, kind: p.kind, pos: [r2(p.x), r2(p.y), r2(p.z)] })
+    for (const p of this.pickups) if (iv.pickups.has(p.id)) pickups.push({ id: p.id, kind: p.kind, pos: [r2(p.x), r2(p.y), r2(p.z)] })
     const zn = this.zoneNow()
     const nxt = this.circles[Math.min(zn.k, this.circles.length - 1)]
     const drops: any[] = []
@@ -2003,7 +2016,7 @@ export class Match {
         const b = Math.atan2(s.y - m.y, s.x - m.x) + this.rng.gauss() * noise * (m.ms.hearing ?? 1)
         m.sounds.push({ kind: s.kind, bearing: r3(wrap(b)), dist: d < sc.near ? "near" : d < sc.mid ? "mid" : "far", age: r2(this.t - s.t) })
       }
-      if (this.beamsPending.length) {
+      if (this.beamsPending.length && !m.lite) {
         const ex = m.x,
           ey = m.y,
           ez = this.eyeZ(m)
