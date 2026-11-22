@@ -46,19 +46,19 @@ export const P = {
   /** Target score weights: attacker bonus, no-LOS penalty, stickiness bonus, HP weight. */
   tgtAttacker: 2.0,
   tgtNoLos: 1.2,
-  tgtSticky: 0.4,
+  tgtSticky: 0.2,
   tgtHp: 1.0,
   /** An enemy that damaged us within this many seconds counts as an attacker. */
   attackerS: 6,
   /** Engage non-attackers only at or above this HP fraction (unless they are weak or close). */
   engageHp: 0.0,
   /** ...or when they are below this HP fraction (finish them), or closer than this (m). */
-  finishHp: 0.35,
+  finishHp: 0.5,
   closeEngage: 0,
   /** Heal: with no attacker and HP below this, hold fire on passive targets, crates and NPCs. */
   healHp: 0.0,
   /** Hunt: with no target and HP at or above this, path toward remembered enemies / sounds. */
-  huntHp: 0.6,
+  huntHp: 0.45,
   /** Hunt: forget remembered enemy positions after this many seconds. */
   huntMemS: 40,
   /** Hunt: stop hunting at this match time (everyone hunts us after ~330 s). */
