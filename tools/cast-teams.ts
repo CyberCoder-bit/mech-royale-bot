@@ -2,7 +2,9 @@
 /**
  * Aggregate several mechreplay/1 files (e.g. recorded showdown casts) per mech name (team) or archetype.
  *
- *   bun tools/cast-teams.ts <file-or-dir> [more files/dirs...] [--json] [--partial]
+ *   bun tools/cast-teams.ts <file-or-dir> [more files/dirs...] [--json] [--partial] [--team <name>]
+ *
+ * --team prints one row per match for that team (place, death, killer, kills, damage, movement, engagements, loadout).
  *
  * Runs tools/replay-summary.ts --json on each file and pools the per-mech results by name.
  * Directories are scanned for *.jsonl and *.jsonl.gz. Files with < 100 frames, or without a result line (unless --partial), are skipped.
@@ -12,7 +14,9 @@ import { join } from "node:path"
 
 const args = process.argv.slice(2)
 const asJson = args.includes("--json")
-const inputs = args.filter((a) => !a.startsWith("--"))
+const teamOpt = (() => { const i = args.indexOf("--team"); return i >= 0 ? args[i + 1] : undefined })()
+const inputs = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--team")
+const perMatch = new Map<string, any[]>()
 const files: string[] = []
 for (const p of inputs) {
   if (statSync(p).isDirectory()) for (const f of readdirSync(p).sort()) { if (/\.jsonl(\.gz)?$/.test(f)) files.push(join(p, f)) }
@@ -51,6 +55,15 @@ for (const f of files) {
       teams.set(key, t)
     }
     t.matches++
+    const nameById = (id: any) => S.mechs.find((x: any) => x.id === id)?.name ?? id
+    const myEng = (S.engagements ?? []).filter((e: any) => e.shooter === m.id && e.dist != null).map((e: any) => e.dist)
+    if (!perMatch.has(key)) perMatch.set(key, [])
+    perMatch.get(key)!.push({ seed: S.meta.seed, dur, place: m.place, death_t: m.death_t, killer: m.killer == null ? null : nameById(m.killer), killed_with: m.killed_with,
+      kills: m.kills, dmg_out: Math.round(Object.values(m.damage_dealt.mech as Record<string, number>).reduce((a, b) => a + b, 0)),
+      dmg_in: Math.round(Object.values(m.damage_taken as Record<string, number>).reduce((a, b) => a + b, 0)),
+      gun_acc: m.accuracy.gun?.acc_vs_mech_pct ?? null, still: m.movement.still_pct, boost: m.movement.boost_pct, air: m.movement.airborne_pct, elevated_s: m.movement.elevated_grounded_s,
+      engagements: myEng.length, eng_median: r1(q(myEng, 0.5), 0), cubes_max: m.cubes_max, drops: m.drops_taken, zone_margin_min: m.zone.margin_m_min,
+      loadout: m.loadout_timeline[m.loadout_timeline.length - 1]?.[1]?.filter(Boolean).join("+"), first_weapon_t: m.first_weapon_t, upgrades: m.upgrades.map((u: any) => u[1]).join(",") })
     if (m.place != null) t.places.push(m.place)
     t.survival.push(m.death_t ?? dur)
     t.kills += m.kills
@@ -95,7 +108,7 @@ const rows = [...teams.values()].map((t) => ({
   loadouts: t.loadouts, first_weapon_t: t.firstWeapon, upgrades: t.upgrades, death_by: t.killedWith, laser_hold_median: r1(q(t.laserHold, 0.5), 2),
 })).sort((a, b) => (a.mean_place ?? 99) - (b.mean_place ?? 99))
 
-if (asJson) console.log(JSON.stringify({ files: used, teams: rows }, null, 1))
+if (asJson) console.log(JSON.stringify({ files: used, teams: rows, per_match: teamOpt ? perMatch.get(teamOpt) ?? [] : Object.fromEntries(perMatch) }, null, 1))
 else {
   console.log(`files: ${used.length}`)
   for (const u of used) console.log(`  ${u.file}  seed=${u.seed} ${u.duration}s winner=${u.winner}`)
@@ -108,4 +121,8 @@ else {
   }
   console.log("\nupgrades / first weapon t / death by:")
   for (const r of rows) console.log(`  ${r.team}: ${JSON.stringify(r.upgrades)} | ${JSON.stringify(r.first_weapon_t)} | ${JSON.stringify(r.death_by)} | dmg ${JSON.stringify(r.dmg_by_weapon)} | laser hold ${r.laser_hold_median}`)
+}
+if (!asJson && teamOpt) {
+  console.log(`\nper match: ${teamOpt}`)
+  for (const r of perMatch.get(teamOpt) ?? []) console.log("  " + JSON.stringify(r))
 }
