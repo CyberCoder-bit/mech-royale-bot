@@ -126,6 +126,52 @@ export const P = {
   revealStop: 30,
   /** Reveal: blind gun fire at the estimate (trees don't stop shots). */
   revealFire: true,
+
+  // ---------------- squad tactics round 2 (sq2): every knob below is off by default (= v3 behavior)
+  /** Fight dodge: boost while strafing in a fight once energy reaches this (0 = off), until it drops below fightBoostLo. */
+  fightBoostE: 0,
+  fightBoostLo: 25,
+  /** Hop: chance per decision to jump while fighting at a distance in [hopMin, hopMax] m (0 = off). */
+  hopP: 0,
+  hopMin: 30,
+  hopMax: 200,
+  /** Target score bonus for mechs carrying a laser, and for mechs charging one at us (0 = off). */
+  tgtLaser: 0,
+  tgtCharging: 0,
+  /** Pre-charge the laser for a listed target out of line that we had a line to within preChargeLos s. */
+  preCharge: false,
+  preChargeLos: 3,
+  /** Keep regen running: no crate / NPC farming below this HP fraction while not under fire (0 = off). */
+  farmHealHp: 0,
+  /** Squad: hit by a mech within this many s -> passive targets only when nearly dead (below finishHp) (0 = off). */
+  atkOnly: 0,
+  /** Squad: hit by a mech we can't see within this many s while on a passive target -> drop it and reveal (0 = off). */
+  unseenSwitch: 0,
+  /** Boost (along the current move) while a listed mech charges a laser aimed at us. */
+  laserBoost: false,
+  /** Mortar dodge: escape across the line to our target instead of straight away from the impact. */
+  dodgeLateral: false,
+  /** Fight-cube: boost to a cube farther than 6 m while energy is above this (0 = off). */
+  cubeBoostE: 0,
+  /** Pincer: 2+ attackers spread over more than pincerDeg -> add this weight of "away from their middle" (0 = off). */
+  pincerW: 0,
+  pincerDeg: 100,
+  /** Target score bonus for a mech whose torso is turned away from us (our hits land in its rear arc, x1.5). */
+  tgtRear: 0,
+  /** Flank passive targets: weight of the pull toward the spot behind them at the preferred range (0 = off). */
+  flankW: 0,
+  /** Target score bonus for mortar holders while we hold a laser (cook-off +60%) (0 = off). */
+  tgtCook: 0,
+  /** Cube mode (no target): boost to cubes farther than 6 m while energy is above this (0 = off). */
+  cubeTravelBoostE: 0,
+  /** Boost toward a passive target more than 25 m beyond the preferred range, or around cover to it (0 = off). */
+  chaseBoostE: 0,
+  /** Target score bonus per cube the target carries (a kill drops them all + 2) (0 = off). */
+  tgtCubes: 0,
+  /** Attackers beyond this distance (m) get only a quarter of the attacker bonus: far shooters miss, passives die (0 = off). */
+  tgtAttackerD: 0,
+  /** Mortar dodge: also trigger on shells landing near where our current velocity takes us by impact time. */
+  dodgePredict: false,
 }
 
 /**

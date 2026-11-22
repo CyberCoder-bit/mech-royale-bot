@@ -150,12 +150,14 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   let lastAttackerId: number | null = null
   let ffaEvidence = 0
   let lastRearT = -99
+  let lastMechHurtT = -99
   let holdSpot: V3 | null = null
   let holdUntil = -1
   let duckPt: V2 | null = null
   let duckUntil = -1
   let xfPt: V3 | null = null
   let xfUntil = -1
+  let fbOn = false
   const pickMem = new Map<number, { kind: WeaponKind; pos: V3; t: number }>()
   let soundPt: { x: number; y: number; t: number } | null = null
   let mode = "idle"
@@ -198,7 +200,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           if (ev.by !== null && ev.by !== undefined) {
             lastHurtT = t
             hurtBearing = ev.bearing
-            if (ev.by < 100) lastAttackerId = ev.by
+            if (ev.by < 100) (lastAttackerId = ev.by), (lastMechHurtT = t)
             if (ev.rear) lastRearT = t
             const tr = tracks.get(ev.by)
             if (tr) tr.lastAttack = t
@@ -364,17 +366,33 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           // passive (or not yet hostile) mech: engage only when we can afford it
           let allowed = !healing && (hpFrac >= PRM.engageHp || ef < PRM.finishHp || d < PRM.closeEngage)
           if (knownWeapon && PRM.lootFirstIgnore > 0 && d > PRM.lootFirstIgnore && e.id !== curTarget) allowed = false
+          // a mech is shooting us: no passive targets (only nearly dead ones) until it is dealt with
+          if (PRM.atkOnly > 0 && sq && t - lastMechHurtT < PRM.atkOnly && ef >= PRM.finishHp) allowed = false
           if (!allowed) continue
         }
         let s = d / 100 + ef * PRM.tgtHp
-        if (attacker) s -= PRM.tgtAttacker
+        if (attacker) s -= PRM.tgtAttackerD > 0 && d > PRM.tgtAttackerD ? PRM.tgtAttacker * 0.25 : PRM.tgtAttacker
         if (t - tr.lastAttack < 2) s -= PRM.tgtRecentAtk // the one shooting us right now: face it (rear hits x1.5)
+        // lasers: 315 per hitscan shot, the house bots' burst threat
+        if (PRM.tgtLaser > 0 && e.weapons?.includes("laser")) s -= PRM.tgtLaser
+        // a kill drops all of the victim's cubes + 2
+        if (PRM.tgtCubes > 0) s -= PRM.tgtCubes * Math.min(10, e.cubes ?? 0)
+        // our laser cooks off a mortar holder (+60%)
+        if (PRM.tgtCook > 0 && laserS >= 0 && e.weapons?.includes("mortar")) s -= PRM.tgtCook
+        // a mech turned away from us takes x1.5 (rear arc): free damage
+        if (PRM.tgtRear > 0 && Math.abs(angDiff(yawTo(e.pos, P), e.aim[0])) > Math.PI / 2 + 0.1) s -= PRM.tgtRear
+        if (PRM.tgtCharging > 0 && e.charging && Math.abs(angDiff(e.aim[0], yawTo(e.pos, P))) < 0.25) s -= PRM.tgtCharging
         if (!tr.los) s += PRM.tgtNoLos
         if (e.id === curTarget) s -= PRM.tgtSticky + PRM.tgtFocus * (1 - ef)
         if (s < tScore) (tScore = s), (target = e)
       }
       // shot in the back by someone we cannot see while busy with a non-attacker: turn to face the shooter instead
       if (PRM.rearReveal && target && t - lastRearT < 1.5 && lastAttackerId !== null && !isThreat(tracks.get(target.id)!)) {
+        const la = tracks.get(lastAttackerId)
+        if (!la || !la.listed) target = null
+      }
+      // shot by a mech we can't see (behind us, in canopy) while busy with a passive one: drop it, face the shooter
+      if (PRM.unseenSwitch > 0 && sq && target && t - lastMechHurtT < PRM.unseenSwitch && lastAttackerId !== null && !isThreat(tracks.get(target.id)!)) {
         const la = tracks.get(lastAttackerId)
         if (!la || !la.listed) target = null
       }
@@ -387,7 +405,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
       if (PRM.npcDefend && !target && profile === "fighter")
         for (const n of npcs) if (t - (tracks.get(n.id)?.lastAttack ?? -99) < 3 && dist3(P, n.pos) < 90) npcAtk = n
       if (npcAtk) farm = { pos: centerOf(npcAtk), id: npcAtk.id, kind: "npc" }
-      else if (!target && profile === "fighter" && !healing) {
+      else if (!target && profile === "fighter" && !healing && !(PRM.farmHealHp > 0 && hpFrac < PRM.farmHealHp && !underFire)) {
         let best = Infinity
         if (hpFrac > PRM.farmNpcHp)
           for (const n of npcs) {
@@ -489,6 +507,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
             else if (charge < full - 0.02) fire[laserS] = true // keep charging
             else fire[laserS] = !ok // full: release (false) when aligned with a clear line
           } else if (charge > 0) fire[laserS] = !ok
+          else if (PRM.preCharge && primary !== "lightning" && !losNow && laserW.cooldown <= 0.05 && tgtTrack && t - tgtTrack.lastLos < PRM.preChargeLos && tDist < laserRange)
+            fire[laserS] = true // pre-charge: it ducked out of line, the first shot back lands at full charge
           laserNoTargetSince = -1
         }
         if (mortarW && mortarS >= 0 && primary === "mortar" && desired && tDist > 20) {
@@ -590,6 +610,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           mode = "chase"
           const m = goPath(target.pos[0], target.pos[1], target.pos[2], 6)
           if (m) move = m
+          if (PRM.chaseBoostE > 0 && me.energy > PRM.chaseBoostE && me.grounded) boost = true
         } else if (drop && drop.d < PRM.dropFightRange && !(drop.d < drop.r - 2.5)) {
           // fight on the way into the drop ring
           mode = "fight-drop"
@@ -611,7 +632,49 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           }
           const radial = clamp((d - pref) / Math.max(20, pref * 0.5), -1, 1)
           move = norm2([toT[0] * radial + perp[0] + zonePull[0] * 1.5, toT[1] * radial + perp[1] + zonePull[1] * 1.5])
+          // flank a passive target: work around to its back (x1.5 rear hits) at the preferred range
+          if (PRM.flankW > 0 && sq && tgtTrack && !isThreat(tgtTrack) && !needZone) {
+            const bk = unit(target.aim[0] + Math.PI)
+            const fx = target.pos[0] + bk[0] * pref - P[0], fy = target.pos[1] + bk[1] * pref - P[1]
+            const fd = Math.hypot(fx, fy)
+            if (fd > 6) {
+              move = norm2([move[0] + (fx / fd) * PRM.flankW, move[1] + (fy / fd) * PRM.flankW])
+              mode = "fight-flank"
+            }
+          }
+          // pincer: attackers on opposite sides -> back away from their middle so they end up on one side (front arc)
+          if (PRM.pincerW > 0) {
+            let cx = 0, cy = 0, n = 0, ux = 0, uy = 0
+            for (const tr of tracks.values()) {
+              if (!isAttacker(tr) || tr.id >= 100) continue
+              let px = tr.pos[0], py = tr.pos[1]
+              if (t - tr.lastListed > 5) {
+                // unseen shooter: only the latest one, placed along the last damage bearing
+                if (tr.id !== lastAttackerId || t - lastMechHurtT > 3 || hurtBearing === null) continue
+                px = P[0] + Math.cos(hurtBearing) * 60, py = P[1] + Math.sin(hurtBearing) * 60
+              }
+              const a = Math.atan2(py - P[1], px - P[0])
+              ux += Math.cos(a), uy += Math.sin(a)
+              cx += px, cy += py, n++
+            }
+            // resultant length of the bearings: cos(spread / 2) for two attackers
+            if (n >= 2 && Math.hypot(ux, uy) / n < Math.cos((PRM.pincerDeg * Math.PI) / 360)) {
+              const u = norm2([P[0] - cx / n, P[1] - cy / n])
+              move = norm2([move[0] + u[0] * PRM.pincerW, move[1] + u[1] * PRM.pincerW])
+              mode = "fight-pincer"
+            }
+          }
           boost = outside && me.energy > 30
+          // dodge: strafe at boost speed while a threat has a line on us (keep energy for lightning up close)
+          // close the gap to a passive target faster (it does not shoot back; the hunters do)
+          if (PRM.chaseBoostE > 0 && !boost && tgtTrack && !isThreat(tgtTrack) && d > pref + 25 && me.energy > PRM.chaseBoostE + (lightW ? 40 : 0)) boost = true
+          if (PRM.fightBoostE > 0 && !boost) {
+            const keep = lightW && tDist < 70 ? 40 : 0
+            if (me.energy >= PRM.fightBoostE + keep) fbOn = true
+            else if (me.energy < PRM.fightBoostLo + keep) fbOn = false
+            if (fbOn && (t - lastHurtT < 2 || (losNow && !!tgtTrack && isThreat(tgtTrack)))) boost = true
+          }
+          if (PRM.hopP > 0 && me.grounded && d > PRM.hopMin && d < PRM.hopMax && rand() < PRM.hopP) jump = true
           // grab cubes lying close by while fighting (kill drops: +HP, +damage)
           if (PRM.cubeGrab > 0 && me.cubes < 30) {
             let bc: ArrayLike<number> | null = null, bd = PRM.cubeGrab
@@ -623,6 +686,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
               mode = "fight-cube"
               const tc = norm2([bc[0] - P[0], bc[1] - P[1]])
               move = norm2([tc[0] * 1.5 + perp[0] * 0.4, tc[1] * 1.5 + perp[1] * 0.4])
+              if (PRM.cubeBoostE > 0 && me.energy > PRM.cubeBoostE + (lightW && tDist < 70 ? 40 : 0) && bd > 6) boost = true // less time on a predictable line
             }
           }
         }
@@ -730,6 +794,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           }
           // cover long hunting/looting trips faster, keeping energy for the fight at the end
           if (PRM.travelBoostE > 0 && (mode === "hunt" || mode === "loot") && goalDist > PRM.travelBoostD && me.energy > PRM.travelBoostE && me.grounded) boost = true
+          // cubes (kill drops) are contested by the squad's loot runs and by our own next fight: get there first
+          if (PRM.cubeTravelBoostE > 0 && mode === "cube" && goalDist > 6 && me.energy > PRM.cubeTravelBoostE && me.grounded) boost = true
         }
         boost = boost || (outside && me.energy > 20) || (needZone && dNext - nr > 120 && me.energy > 75)
         if (now - lastHurtT < 3 && profile === "fighter") {
@@ -795,6 +861,14 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         }
       }
 
+      // ---------------- laser telegraph: a mech charging at us -> boost (hitscan beams land where the shooter last saw us)
+      if (PRM.laserBoost && profile === "fighter" && me.energy > 8 && Math.hypot(move[0], move[1]) > 0.5 && mode !== "duck")
+        for (const e of listed)
+          if (e.charging && dist2(P, e.pos) < 240 && Math.abs(angDiff(e.aim[0], yawTo(e.pos, P))) < Math.max(0.06, Math.atan2(8, dist2(P, e.pos)))) {
+            boost = true
+            break
+          }
+
       // ---------------- mortar dodge: incoming shell landing near us -> get out of the splash
       if (PRM.dodgeMortar && profile === "fighter") {
         let ax = 0, ay = 0, n = 0
@@ -808,7 +882,13 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           const ix = pr.pos[0] + pr.vel[0] * th, iy = pr.pos[1] + pr.vel[1] * th
           const dx = P[0] - ix, dy = P[1] - iy
           const dd = Math.hypot(dx, dy)
-          if (dd > mortarSplash + PRM.dodgeMargin) continue
+          // house mortars lead their target: also dodge a shell landing where our current motion takes us
+          let danger = dd
+          if (PRM.dodgePredict) {
+            const tq = Math.min(th, 1.5)
+            danger = Math.min(dd, Math.hypot(P[0] + me.vel[0] * tq - ix, P[1] + me.vel[1] * tq - iy))
+          }
+          if (danger > mortarSplash + PRM.dodgeMargin) continue
           // away from the impact point; straight on top of it: sideways to the shell's path
           if (dd > 0.5) (ax += dx / dd), (ay += dy / dd)
           else {
@@ -821,6 +901,14 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         if (n > 0 && (ax !== 0 || ay !== 0)) {
           mode = "dodge"
           move = norm2([ax, ay])
+          // run across the target's line, not along it (a straight radial run is easy to lead)
+          if (PRM.dodgeLateral && target) {
+            const tl = unit(yawTo(P, target.pos))
+            const px = -tl[1], py = tl[0]
+            const side = move[0] * px + move[1] * py
+            const s = Math.abs(side) > 0.15 ? Math.sign(side) : jinkSign
+            move = norm2([px * s + move[0] * 0.35, py * s + move[1] * 0.35])
+          }
           boost = me.energy > 5
           jump = false
         }
