@@ -47,3 +47,4 @@
 | 02:55 | ffa-endgame 3cd57ff (on bd23fa7) | bridge/low-ceiling fix for grown mechs + duel first shot | squad identical | ffa +0.06 ± 0.03 (192), win 33% → 41% | final-build component (squad port of bridge fix requested) |
 | 02:56 | v3es salt 2 d65b7cf | bd23fa7 + rngSalt 2 | – | – | **5.22** NEW BEST (salts: 5.10 / 5.04 / 5.22) |
 | 02:56 | final-s2eg 38e9fc2 | salt 2 + FFA endgame (3cd57ff); squad actions identical | – | ffa +0.06, win 33→41% | pending; top-32 line now 5.77 |
+| 03:01 | final-s2eg 38e9fc2 | official | squad actions identical on stream | – | **4.92** (vs salt 2 5.22): wall-time-capped planning makes real runs path-dependent; re-picked salt 2 (BB-327713BA, 5.22) as final entry |
