@@ -54,6 +54,8 @@ export class PathFollower {
   /** A* time budget per plan (ms) */
   planMs = 6
   maxClimb = 50
+  /** allow jump+jet hops to get unstuck (off in fights: airborne mechs are easy targets) */
+  allowHop = true
 
   constructor(nav: NavGrid) {
     this.nav = nav
@@ -291,7 +293,7 @@ export class PathFollower {
     if (t - this.lastProgressT > 1.2) {
       this.stuckLevel++
       this.lastProgressT = t
-      if (this.stuckLevel <= 2 && inp.energy > 15) {
+      if (this.stuckLevel <= 2 && inp.energy > 15 && this.allowHop) {
         this.hopUntil = t + 0.9
         out.jump = inp.grounded
         out.state += "+hop"

@@ -70,14 +70,40 @@ export const P = {
   v1Band: { lightning: [8, 32], laser: [60, 190], mortar: [60, 190], gunWithLightning: [15, 90], gun: [55, 125] } as Record<string, [number, number]>,
   /** Keep the fight going this long (s) after losing sight of the target: duck, reload, peek back. */
   peekS: 4,
+  /** Search radius (m) for a spot with a clear shot when the target ducks out of sight. */
+  peekSearch: 18,
   /** Chase a wounded enemy (HP fraction below pursueHp) seen within pursueS seconds if we have pursueMinHp. */
   pursueHp: 0.35,
   pursueMinHp: 0.45,
   pursueS: 10,
+  /** Loot: remembered weapon pickups within this range (m) early (t < lootEarlyT s), else lootWeaponRange. */
+  lootWeaponRangeEarly: 170,
+  lootEarlyT: 45,
+  /** Spin the torso this long at the start to see loot all around (s). */
+  openScanS: 2,
+  /** Go capture a landed, uncontested supply drop within this range (m) when nobody is in view. */
+  dropRange: 140,
+  /** Idle: wait at a low-exposure spot within holdRadius (m), re-chosen every holdRefresh s; distance cost per m. */
+  holdRadius: 45,
+  holdRefresh: 25,
+  holdDistCost: 0.004,
   /** Retreat to cover when at least this many enemies have a clear line to us. */
   crossfireN: 2,
+  /** Wall-time cap (ms) of the JIT warm-up at hello (synthetic decisions). */
+  warmMs: 700,
   /** Soft per-tick compute budget (ms) for optional work (replans, cover searches). */
   tickBudgetMs: 12,
   /** Draw the path and cover point (debug, team only). */
   debugDraw: true,
+}
+
+/**
+ * Experiment hook: MR_PARAMS='{"healHp":0}' overrides tunables for local sim runs (shallow merge).
+ * Never set in a match container; ignored when absent or invalid.
+ */
+try {
+  const env = typeof process !== "undefined" ? process.env?.MR_PARAMS : undefined
+  if (env) Object.assign(P, JSON.parse(env))
+} catch {
+  // keep defaults
 }

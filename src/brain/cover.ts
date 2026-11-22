@@ -61,6 +61,47 @@ export function exposure(world: World, x: number, y: number, z: number, eyes: V3
   return n
 }
 
+/**
+ * Nearest standing spot within maxDist from which a muzzle at height muzzleH has a clear shot at
+ * `target` (to re-acquire a target that broke line of sight). Prefers spots close to us.
+ */
+export function findPeek(
+  world: World,
+  nav: NavGrid,
+  pos: V3,
+  target: V3,
+  muzzleH: number,
+  maxDist: number,
+  budgetMs = 1.5,
+  zoneC?: V2,
+  zoneR = 0,
+): CoverPoint | null {
+  const t0 = performance.now()
+  const [px, py, pz] = pos
+  const radii = [2.5, 4.5, 7, 10, 13.5, 17.5, 22]
+  for (let ri = 0; ri < radii.length; ri++) {
+    const r = radii[ri]
+    if (r > maxDist) break
+    // directions toward the target's side first
+    const base = Math.atan2(target[1] - py, target[0] - px)
+    for (let a = 0; a < ANG; a++) {
+      if (performance.now() - t0 > budgetMs) return null
+      const k = a % 2 === 0 ? a / 2 : -(a + 1) / 2
+      const ang = base + (k * 2 * Math.PI) / ANG
+      const x = px + Math.cos(ang) * r, y = py + Math.sin(ang) * r
+      const n = nav.nodeAt(x, y, pz)
+      if (n < 0 || nav.st[n] !== 1) continue
+      const z = nav.hz[n]
+      if (Math.abs(z - pz) > 3) continue
+      if (zoneC && zoneR > 0 && Math.hypot(x - zoneC[0], y - zoneC[1]) > zoneR) continue
+      if (!world.shotClear([x, y, z + muzzleH], target)) continue
+      if (!nav.lineWalkable(px, py, pz, x, y, 40)) continue
+      return { x, y, z, d: r, cost: r, straight: true }
+    }
+  }
+  return null
+}
+
 export function findCover(world: World, nav: NavGrid, q: CoverQuery): CoverPoint | null {
   const t0 = performance.now()
   const budget = q.budgetMs ?? 3

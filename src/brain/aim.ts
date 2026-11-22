@@ -26,6 +26,25 @@ export function leadPoint(m: V3, p: V3, v: V3, s: number): { at: V3; t: number }
   return { at: [p[0] + v[0] * t, p[1] + v[1] * t, p[2] + v[2] * t], t }
 }
 
+/**
+ * Intercept for a straight bullet against a target that may be airborne: horizontal motion is
+ * linear; vertical motion is linear while jetting (vz near the rise cap) or on the ground (vz 0),
+ * otherwise ballistic under gravity g, never below `floorZ` (ground under the target's center).
+ */
+export function leadPointAir(m: V3, p: V3, v: V3, s: number, g: number, floorZ: number, riseCap = 8.9): { at: V3; t: number } {
+  const jetting = Math.abs(v[2] - riseCap) < 0.6
+  const ballistic = !jetting && Math.abs(v[2]) > 0.3
+  let t = Math.hypot(p[0] - m[0], p[1] - m[1], p[2] - m[2]) / s
+  let at: V3 = [p[0], p[1], p[2]]
+  for (let k = 0; k < 4; k++) {
+    let z = p[2] + v[2] * t - (ballistic ? 0.5 * g * t * t : 0)
+    if (z < floorZ) z = floorZ
+    at = [p[0] + v[0] * t, p[1] + v[1] * t, z]
+    t = Math.hypot(at[0] - m[0], at[1] - m[1], at[2] - m[2]) / s
+  }
+  return { at, t }
+}
+
 /** Yaw/pitch from `m` toward `p`. */
 export function aimAt(m: V3, p: V3): [number, number] {
   return [Math.atan2(p[1] - m[1], p[0] - m[0]), Math.atan2(p[2] - m[2], Math.hypot(p[0] - m[0], p[1] - m[1]))]

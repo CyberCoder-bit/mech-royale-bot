@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
+import { cpus, loadavg } from "node:os"
+
+/** Timing asserts are meaningless on an oversubscribed machine: log instead of failing there. */
+const overloaded = loadavg()[0] > cpus().length * 0.9
 import { loadWorld, navFor, Pathfinder, PathFollower, EDGE_CLIMB } from "../src/world/index.ts"
 
 const world = loadWorld("kit/arena", ["v2/world.json", "v2/terrain.i16"])
@@ -160,7 +164,7 @@ describe("perf", () => {
     const t0 = performance.now()
     const w2 = new (world.constructor as any)(raw, world.th)
     const load = performance.now() - t0
-    expect(load).toBeLessThan(500)
+    if (!overloaded) expect(load).toBeLessThan(500)
     let s = 7
     const r = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
     const N = 5000
@@ -172,14 +176,14 @@ describe("perf", () => {
     const t1 = performance.now()
     for (const q of segs) w2.sightClear([q[0], q[1], q[2]], [q[3], q[4], q[5]])
     const perMs = N / (performance.now() - t1)
-    expect(perMs).toBeGreaterThan(30) // ~400/ms on an idle machine; generous for a loaded box
+    if (!overloaded) expect(perMs).toBeGreaterThan(80) // ~400/ms on an idle machine
     const pf = new Pathfinder(navFor(world))
     pf.findPath(-150, 100, world.groundZ(-150, 100), 250, -100, world.groundZ(250, -100), { maxMs: 200 })
     const t2 = performance.now()
     const res = pf.findPath(-150, 100, world.groundZ(-150, 100), 250, -100, world.groundZ(250, -100), { maxMs: 200 })
     const astar = performance.now() - t2
     expect(res.status).toBe("ok")
-    expect(astar).toBeLessThan(40)
-    console.log(`perf: world ctor ${load.toFixed(1)} ms, sightClear ${perMs.toFixed(0)}/ms, A* 447 m ${astar.toFixed(2)} ms (${res.expanded} expanded)`)
+    if (!overloaded) expect(astar).toBeLessThan(40)
+    console.log(`perf${overloaded ? " (machine overloaded: timing not asserted)" : ""}: world ctor ${load.toFixed(1)} ms, sightClear ${perMs.toFixed(0)}/ms, A* 447 m ${astar.toFixed(2)} ms (${res.expanded} expanded)`)
   })
 })
