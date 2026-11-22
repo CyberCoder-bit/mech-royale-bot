@@ -46,8 +46,11 @@ export const P = {
   v1Range: { lightning: 22, laser: 115, mortar: 120, gunWithLightning: 35, gun: 95 },
   /** Retreat to cover below this HP fraction unless the target is weaker by retreatMargin. */
   v1RetreatHp: 0.4,
-  /** Heal (hide and regen) when no target is visible and HP fraction is below this. */
-  healHp: 0.9,
+  /**
+   * Heal (hide and regen) when no target is visible and HP fraction is below this. Off in squad
+   * mode: sim A/B (32 paired seeds) 2.56 -> 4.00 points without it (hunters find us anyway).
+   */
+  healHp: 0,
   /** Stop healing at this HP fraction. */
   healDoneHp: 0.985,
   /** Fight near a cover point: max cover search radius and the leash to it while fighting (m). */
@@ -89,6 +92,8 @@ export const P = {
   holdDistCost: 0.004,
   /** Retreat to cover when at least this many enemies have a clear line to us. */
   crossfireN: 2,
+  /** Overrides applied once FFA (the final's format) is detected: avoid fights, hide and heal. */
+  ffaOverrides: { healHp: 0.9 } as Record<string, unknown>,
   /** Wall-time cap (ms) of the JIT warm-up at hello (synthetic decisions). */
   warmMs: 700,
   /** Soft per-tick compute budget (ms) for optional work (replans, cover searches). */

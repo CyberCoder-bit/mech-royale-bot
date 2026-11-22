@@ -45,6 +45,9 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
       nav = null
       follow = null
     }
+  // tactical parameters: squad (practice) defaults, FFA overrides once free-for-all is detected
+  const PSQ = PRM
+  const PFFA = { ...PRM, ...(PRM.ffaOverrides as Partial<typeof PRM>) } as typeof PRM
   const fallback = makeBotV0(hello, profile)
   if (PRM.useWorld)
     try {
@@ -146,6 +149,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
       else if (ev.type === "kill") kills++
     }
     if (!ffa && totalMechs - obs.alive > kills + PRM.ffaSlack) ffa = true
+    const Q = ffa ? PFFA : PSQ
     if (obs.offer && obs.offer.choices?.length) act.pick = pickUpgrade(obs.offer.choices)
     for (const s of obs.sounds ?? []) {
       if (!LOUD.has(s.kind) || s.dist === "far") continue
@@ -155,7 +159,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
     // ---------------- tracking (own LOS: the server also lists remembered, hidden mechs)
     tracker.update(obs, world, muzzle, myCenter, myTop)
     const enemies = tracker.enemies(t, 6)
-    const known = tracker.enemies(t, PRM.threatMemory)
+    const known = tracker.enemies(t, Q.threatMemory)
     const visible = enemies.filter((e) => e.los && !e.ghost)
     const npcsNow = tracker.npcs(t, 0.01)
     // loot memory: refresh what we see, forget what should be visible (near, clear line) but is gone
@@ -268,30 +272,30 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
     if (profile === "fighter" && !visible.length && !seenBy.length)
       for (const d of obs.drops ?? []) {
         const dd = dist2(P, d.pos)
-        if (d.lands_in > dd / walk + 3 || dd > PRM.dropRange || !inSafe(d.pos[0], d.pos[1], 10)) continue
+        if (d.lands_in > dd / walk + 3 || dd > Q.dropRange || !inSafe(d.pos[0], d.pos[1], 10)) continue
         if (d.holder !== null && d.holder !== me.id) continue
         if (!dropGoal || dd < dist2(P, dropGoal)) dropGoal = [d.pos[0], d.pos[1], d.pos[2]]
       }
 
     // ---------------- mode
     const prevMode = mode
-    const lowHp = hpFrac < PRM.v1RetreatHp
+    const lowHp = hpFrac < Q.v1RetreatHp
     // crossfire: several enemies with a line on us -> break line of sight first, fight them one at a time
-    const crossfire = seenBy.filter((e) => (e.ghost ? t - e.hurtUsT < 2 : dist2(P, e.pos) < 170)).length >= PRM.crossfireN
+    const crossfire = seenBy.filter((e) => (e.ghost ? t - e.hurtUsT < 2 : dist2(P, e.pos) < 170)).length >= Q.crossfireN
     if (tgt && engage) {
       engagedId = tgt.id
       engagedLosT = t
     }
     const eng = engagedId >= 0 ? tracker.tracks.get(engagedId) ?? null : null
     const engLive = !!eng && !eng.ghost && t - eng.seenT < 5.5
-    const engWeak = !!eng && hpF(eng) < PRM.pursueHp
+    const engWeak = !!eng && hpF(eng) < Q.pursueHp
     if (tgt && engage) {
       const tWeak = hpF(tgt) < hpFrac - PRM.retreatMargin
       mode = lowHp && !tWeak ? "retreat" : "fight"
-    } else if (engLive && !lowHp && t - engagedLosT < PRM.peekS && !crossfire) mode = "fight"
-    else if (eng && engWeak && hpFrac > PRM.pursueMinHp && t - eng.seenT < PRM.pursueS && profile === "fighter" && (!ffa || hpFrac > 0.6)) mode = "pursue"
+    } else if (engLive && !lowHp && t - engagedLosT < Q.peekS && !crossfire) mode = "fight"
+    else if (eng && engWeak && hpFrac > Q.pursueMinHp && t - eng.seenT < Q.pursueS && profile === "fighter" && (!ffa || hpFrac > 0.6)) mode = "pursue"
     else if (seenBy.length && (ffa || lowHp)) mode = "evade"
-    else if (hpFrac < PRM.healHp || (prevMode === "heal" && hpFrac < PRM.healDoneHp)) mode = "heal"
+    else if (hpFrac < Q.healHp || (prevMode === "heal" && hpFrac < Q.healDoneHp)) mode = "heal"
     else if (needZone) mode = "zone"
     else mode = "loot"
     if (mode !== prevMode) modeT = t
@@ -353,13 +357,13 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
     const steer = (d: V2, look = 6): V2 => walkableDir(nav, P[0], P[1], P[2], d, look)
     /** Wait at a low-exposure spot near us (inside the safe circle, away from known enemies): silent and hard to find. */
     const holdSpot = () => {
-      const valid = hold && inSafe(hold.x, hold.y) && t - hold.t < PRM.holdRefresh && !known.some((e) => dist2(e.pos, [hold!.x, hold!.y]) < 40)
+      const valid = hold && inSafe(hold.x, hold.y) && t - hold.t < Q.holdRefresh && !known.some((e) => dist2(e.pos, [hold!.x, hold!.y]) < 40)
       if (!valid) {
         hold = null
         try {
-          const spots = bestSpots([P[0], P[1]], PRM.holdRadius, 3, {
+          const spots = bestSpots([P[0], P[1]], Q.holdRadius, 3, {
             avoid: known.map((e) => e.pos), avoidRadius: 50, minSpacing: 8,
-            penalty: (x, y) => Math.hypot(x - P[0], y - P[1]) * PRM.holdDistCost + (inSafe(x, y) ? 0 : 1),
+            penalty: (x, y) => Math.hypot(x - P[0], y - P[1]) * Q.holdDistCost + (inSafe(x, y) ? 0 : 1),
           })
           if (spots.length && inSafe(spots[0].x, spots[0].y)) hold = { x: spots[0].x, y: spots[0].y, z: spots[0].z, t }
         } catch {
@@ -387,17 +391,17 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
       const toT = unit(ty)
       if (tgt && tgt.los) lastLosPos = [P[0], P[1], P[2]]
       // cover from the target (and other recent threats) near us
-      refreshCover(threatEyes(4), known.filter((e) => t - e.seenT < 4).map((e) => e.pos as V3), PRM.coverSearch, "fight" + ft.id)
+      refreshCover(threatEyes(4), known.filter((e) => t - e.seenT < 4).map((e) => e.pos as V3), Q.coverSearch, "fight" + ft.id)
       const coverD = cover ? Math.hypot(cover.x - P[0], cover.y - P[1]) : Infinity
       // duck: an enemy laser charging at us, or nothing to shoot with for a while
       const laserThreat = visible.some((e) => e.charging && e.aimingAtUs && e.threatLos)
-      const gunOut = !gunW || (gunW.reload ?? 0) > PRM.duckReloadS || (gunW.ammo ?? 1) <= 0
-      const laserOut = !laserW || (laserW.cooldown > PRM.duckReloadS && laserCharge <= 0)
+      const gunOut = !gunW || (gunW.reload ?? 0) > Q.duckReloadS || (gunW.ammo ?? 1) <= 0
+      const laserOut = !laserW || (laserW.cooldown > Q.duckReloadS && laserCharge <= 0)
       const lightOk = !!lightW && d < (lightW.stats.range ?? 45) * 0.9 && me.energy > 10
       const finishing = hpF(ft) < 0.15 && d < 120
-      if (laserThreat && coverD < PRM.duckLaserDist) (duckUntil = Math.max(duckUntil, t + 0.6)), (duckWhy = "L")
-      else if (crossfire && !finishing && coverD < PRM.coverSearch) (duckUntil = Math.max(duckUntil, t + 0.4)), (duckWhy = "X")
-      else if (gunOut && laserOut && !lightOk && coverD < PRM.coverLeash + 4) (duckUntil = Math.max(duckUntil, t + 0.3)), (duckWhy = "R")
+      if (laserThreat && coverD < Q.duckLaserDist) (duckUntil = Math.max(duckUntil, t + 0.6)), (duckWhy = "L")
+      else if (crossfire && !finishing && coverD < Q.coverSearch) (duckUntil = Math.max(duckUntil, t + 0.4)), (duckWhy = "X")
+      else if (gunOut && laserOut && !lightOk && coverD < Q.coverLeash + 4) (duckUntil = Math.max(duckUntil, t + 0.3)), (duckWhy = "R")
       dbgNote = `c${Number.isFinite(coverD) ? Math.round(coverD) : "-"}${t < duckUntil ? duckWhy : ""} s${seenBy.length}`
       if (t < duckUntil && cover && !zoneUrgent) {
         goTo(cover.x, cover.y, cover.z, 1.5, 2)
@@ -408,7 +412,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
         // line of sight lost: step to the nearest spot with a clear shot at its live position
         if (world && nav && (!peek || t - peek.t > 0.5 || peek.id !== ft.id)) {
           const tc: V3 = [ft.pos[0], ft.pos[1], ft.pos[2] + ft.aimDz]
-          const pk = findPeek(world, nav, P, tc, muzH, PRM.peekSearch, clamp(PRM.tickBudgetMs - 4 - (performance.now() - tick0), 0.3, 1.5), nc, nr < 1 ? 0 : Math.max(nr - margin * 0.5, 8))
+          const pk = findPeek(world, nav, P, tc, muzH, Q.peekSearch, clamp(PRM.tickBudgetMs - 4 - (performance.now() - tick0), 0.3, 1.5), nc, nr < 1 ? 0 : Math.max(nr - margin * 0.5, 8))
           peek = pk ? { x: pk.x, y: pk.y, z: pk.z, t, id: ft.id } : { x: NaN, y: NaN, z: NaN, t, id: ft.id }
         }
         if (peek && Number.isFinite(peek.x)) goTo(peek.x, peek.y, peek.z, 1.2, 2)
@@ -419,15 +423,15 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
         }
         goalLabel = "peek"
       } else {
-        const band = PRM.v1Band
+        const band = Q.v1Band
         const primary: Primary = lightW && d < (lightW.stats.range ?? 45) ? "lightning" : laserW ? "laser" : mortarW ? "mortar" : "gun"
         let [lo, hi] = primary === "lightning" ? band.lightning : primary === "laser" ? band.laser : primary === "mortar" ? band.mortar : lightW ? band.gunWithLightning : band.gun
-        if (hpF(ft) < PRM.pursueHp) hi = Math.min(hi, lo + 25) // press a wounded target
+        if (hpF(ft) < Q.pursueHp) hi = Math.min(hi, lo + 25) // press a wounded target
         const radial = d > hi ? clamp((d - hi) / 30, 0, 1) * 0.8 : d < lo ? -clamp((lo - d) / 20, 0, 1) : 0
         const perp: V2 = [-toT[1] * jinkSign, toT[0] * jinkSign]
         let mv: V2 = [toT[0] * radial + perp[0], toT[1] * radial + perp[1]]
         // stay near cover so ducking is quick
-        if (cover && coverD > PRM.coverLeash) {
+        if (cover && coverD > Q.coverLeash) {
           const toC = norm2([cover.x - P[0], cover.y - P[1]])
           mv = [mv[0] * 0.5 + toC[0] * 1.2, mv[1] * 0.5 + toC[1] * 1.2]
         }
@@ -447,7 +451,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
       if (me.energy > 50 && dist2(P, p) > 60) boost = true
     } else if (mode === "retreat" || mode === "evade") {
       const thr = enemies.length ? enemies : known
-      refreshCover(threatEyes(6), thr.map((e) => e.pos as V3), PRM.retreatSearch, "retreat", 0.5)
+      refreshCover(threatEyes(6), thr.map((e) => e.pos as V3), Q.retreatSearch, "retreat", 0.5)
       if (zoneUrgent && (!cover || !inSafe(cover.x, cover.y))) zoneMove()
       else if (cover) {
         goTo(cover.x, cover.y, cover.z, 1.5, 2)
@@ -461,11 +465,11 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
       }
     } else if (mode === "heal") {
       // hide from everything we know about and wait; regen needs 5 s without dealing or taking damage
-      const eyes = threatEyes(PRM.threatMemory)
+      const eyes = threatEyes(Q.threatMemory)
       const exposed = world && eyes.length ? exposure(world, P[0], P[1], P[2], eyes, bodyH) > 0 : false
       if (zoneUrgent) zoneMove()
       else if (exposed) {
-        refreshCover(eyes, known.map((e) => e.pos as V3), PRM.retreatSearch, "heal", 1.0)
+        refreshCover(eyes, known.map((e) => e.pos as V3), Q.retreatSearch, "heal", 1.0)
         if (cover) goTo(cover.x, cover.y, cover.z, 1.5, 2)
       } else if (cover && cover.key === "heal" && Math.hypot(cover.x - P[0], cover.y - P[1]) > 1.5 && t - cover.t < 8) {
         goTo(cover.x, cover.y, cover.z, 1.5, 2)
@@ -615,7 +619,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
       if (mortarW && mortarS >= 0 && primary === "mortar" && desired && tDist > 20) {
         if (Math.abs(angDiff(ay, desired[0])) < 0.03 && Math.abs(ap - desired[1]) < 0.03) fire[mortarS] = true
       }
-    } else if (laserW && laserS >= 0 && laserCharge <= 0 && laserW.cooldown <= 0.05 && mode === "fight" && engLive && t - engagedLosT < PRM.peekS - 1) {
+    } else if (laserW && laserS >= 0 && laserCharge <= 0 && laserW.cooldown <= 0.05 && mode === "fight" && engLive && t - engagedLosT < Q.peekS - 1) {
       // pre-charge behind cover, release on the peek (house bots react slowly)
       fire[laserS] = true
       laserNoTargetSince = t
