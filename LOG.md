@@ -22,3 +22,4 @@
 | 23:40 | ffa d42bbc4 (FFA brain on v0) | hide in low-exposure spots, cover vs threat lines, heal in cover, fight only with an edge, zone safety net, final duel | squad identical (0.00) | ffa 11.92 vs 10.56 (+1.35 ± 0.37, 96 seeds), top-3 72% vs 49%, win 40% vs 29% | not submitted (porting onto v2) |
 | 23:57 | v2+ffa cc24133 | v2 + FFA brain + fast world lib (d1e337f) | squad +0.06 ± 0.09 vs v2 | ffa +0.95 ± 0.42 vs v2 (96 seeds) | pending |
 | 00:00 | v2+ffa cc24133 | official result | – | – | **4.63** (= v2, squad unchanged). PICKED as final entry (BB-73B66656) because it has FFA mode. Re-pick manually if a better FFA-capable version scores higher. |
+| 00:09 | roof fortress (branch worktree-agent-a4e7c3aeadebf310e) | climb a roof and fight from it | −1.29 ± 0.35 (default), −1.31 (HK0); refuge variant +0.17 ± 0.24 (noise) | – | rejected: survives 2× longer but kills fewer, no kill cubes |
