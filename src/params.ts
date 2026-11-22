@@ -99,8 +99,9 @@ export const P = {
   /** Shoot back at an NPC drone that hit us in the last 3 s, at any HP (when no mech target). */
   npcDefend: false,
   laserSwitchS: 0.12,
-  /** Fight: walk over visible cubes within this range (m) while fighting (0 = off). */
-  cubeGrab: 30,
+  /** Fight: walk over visible cubes within this range (m) while fighting (0 = off); ffaCubeGrab once FFA is detected. */
+  cubeGrab: 45,
+  ffaCubeGrab: 30,
   /** Idle (not hunting): wait at the lowest-exposure spot within this radius (m; 0 = off), re-chosen every holdRefresh s. */
   holdR: 0,
   holdRefresh: 20,
@@ -152,7 +153,7 @@ export const P = {
   /** Mortar dodge: escape across the line to our target instead of straight away from the impact. */
   dodgeLateral: false,
   /** Fight-cube: boost to a cube farther than 6 m while energy is above this (0 = off). */
-  cubeBoostE: 0,
+  cubeBoostE: 15,
   /** Pincer: 2+ attackers spread over more than pincerDeg -> add this weight of "away from their middle" (0 = off). */
   pincerW: 0,
   pincerDeg: 100,
@@ -172,6 +173,12 @@ export const P = {
   tgtAttackerD: 0,
   /** Mortar dodge: also trigger on shells landing near where our current velocity takes us by impact time. */
   dodgePredict: false,
+  /** Squad: never loot or take a mortar (house lasers cook off mortar holders, +60%). */
+  noMortar: false,
+  /** Squad last stand: below this HP fraction under fire, target the mech with the least HP left (0 = off). */
+  lastStandHp: 0,
+  /** Hunt: distance penalty (m) for remembered mechs that have shot at us (prefer passive ones; 0 = off). */
+  huntAtkPen: 0,
 }
 
 /**

@@ -319,9 +319,11 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         for (const [id, pm] of pickMem) if (!seen.has(id) && dist2(P, pm.pos) < 30 && Math.abs(pm.pos[2] - P[2]) < 5) pickMem.delete(id)
       }
       const noSlot1 = !me.weapons[1] && !(me.weapons[0] && me.weapons[0].kind !== "gun")
+      // squad: a mortar is cook-off bait for the house lasers (+60% per beam)
+      const skipMortar = PRM.noMortar && sq
       let knownWeapon = false
       if (noSlot1 && PRM.lootMemRange > 0)
-        for (const pm of pickMem.values()) if (pm.kind !== "gun" && dist2(P, pm.pos) < (sq ? PRM.lootMemRange : PRM.ffaLootRange)) knownWeapon = true
+        for (const pm of pickMem.values()) if (pm.kind !== "gun" && !(skipMortar && pm.kind === "mortar") && dist2(P, pm.pos) < (sq ? PRM.lootMemRange : PRM.ffaLootRange)) knownWeapon = true
       // sounds of fights / farming: remember a rough source point for hunting
       for (const s of obs.sounds ?? []) {
         if (s.kind === "gun" || s.kind === "laser" || s.kind === "lightning" || s.kind === "mortar" || s.kind === "crate" || s.kind === "npc_gun" || s.kind === "explosion" || s.kind === "step" || s.kind === "boost") {
@@ -384,6 +386,9 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         if (PRM.tgtCharging > 0 && e.charging && Math.abs(angDiff(e.aim[0], yawTo(e.pos, P))) < 0.25) s -= PRM.tgtCharging
         if (!tr.los) s += PRM.tgtNoLos
         if (e.id === curTarget) s -= PRM.tgtSticky + PRM.tgtFocus * (1 - ef)
+        // last stand (about to die under fire): the mech closest to dying, so the final seconds still buy a place
+        if (PRM.lastStandHp > 0 && sq && hpFrac < PRM.lastStandHp && underFire)
+          s = (e.hp ?? 1400) / 700 + d / 200 + (tr.los ? 0 : 1.5) - (e.id === curTarget ? 0.2 : 0)
         if (s < tScore) (tScore = s), (target = e)
       }
       // shot in the back by someone we cannot see while busy with a non-attacker: turn to face the shooter instead
@@ -676,8 +681,9 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           }
           if (PRM.hopP > 0 && me.grounded && d > PRM.hopMin && d < PRM.hopMax && rand() < PRM.hopP) jump = true
           // grab cubes lying close by while fighting (kill drops: +HP, +damage)
-          if (PRM.cubeGrab > 0 && me.cubes < 30) {
-            let bc: ArrayLike<number> | null = null, bd = PRM.cubeGrab
+          const grabR = sq ? PRM.cubeGrab : PRM.ffaCubeGrab // FFA mode keeps the v3 range
+          if (grabR > 0 && me.cubes < 30) {
+            let bc: ArrayLike<number> | null = null, bd = grabR
             for (const cu of obs.cubes ?? []) {
               const dc = dist2(P, cu.pos)
               if (dc < bd && Math.abs(cu.pos[2] - P[2]) < 4 && safeHere(cu.pos)) (bd = dc), (bc = cu.pos)
@@ -686,7 +692,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
               mode = "fight-cube"
               const tc = norm2([bc[0] - P[0], bc[1] - P[1]])
               move = norm2([tc[0] * 1.5 + perp[0] * 0.4, tc[1] * 1.5 + perp[1] * 0.4])
-              if (PRM.cubeBoostE > 0 && me.energy > PRM.cubeBoostE + (lightW && tDist < 70 ? 40 : 0) && bd > 6) boost = true // less time on a predictable line
+              if (PRM.cubeBoostE > 0 && sq && me.energy > PRM.cubeBoostE + (lightW && tDist < 70 ? 40 : 0) && bd > 6) boost = true // less time on a predictable line
             }
           }
         }
@@ -710,7 +716,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
             const dzMax = follow ? 45 : 30
             const src: { kind: WeaponKind; pos: ArrayLike<number> }[] = PRM.lootMemRange > 0 ? [...pickMem.values()] : (obs.pickups ?? [])
             for (const p of src) {
-              if (p.kind === "gun" || slotOf(p.kind) >= 0) continue
+              if (p.kind === "gun" || slotOf(p.kind) >= 0 || (skipMortar && p.kind === "mortar")) continue
               const cur = me.weapons[1]?.kind
               if (cur && WEAPON_PREF.indexOf(p.kind) >= WEAPON_PREF.indexOf(cur)) continue
               const d = dist2(P, p.pos) + (WEAPON_PREF.indexOf(p.kind) > 0 && noSlot1 ? 0 : 0)
@@ -730,7 +736,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
               const age = t - tr.lastListed
               const gx = tr.pos[0] + tr.vel[0] * Math.min(age, 2), gy = tr.pos[1] + tr.vel[1] * Math.min(age, 2)
               if (!safeHere([gx, gy])) continue
-              const d = Math.hypot(gx - P[0], gy - P[1]) + age * 3
+              // squad: mechs that never shot at us are free kills; the hunters come to us anyway
+              const d = Math.hypot(gx - P[0], gy - P[1]) + age * 3 + (tr.lastAttack > 0 ? PRM.huntAtkPen : 0)
               if (d < bd) (bd = d), (hg = [gx, gy, tr.pos[2]])
             }
             if (!hg && soundPt && t - soundPt.t < 15 && safeHere([soundPt.x, soundPt.y])) hg = [soundPt.x, soundPt.y, P[2]]
@@ -916,7 +923,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
 
       // ---------------- take weapons in reach
       for (const p of obs.pickups ?? []) {
-        if (p.kind === "gun" || slotOf(p.kind) >= 0) continue
+        if (p.kind === "gun" || slotOf(p.kind) >= 0 || (skipMortar && p.kind === "mortar")) continue
         const dh = dist2(P, p.pos), dv = Math.abs(p.pos[2] - P[2])
         if (dh > reach - 0.3 || dv > 3.8) continue
         const cur = me.weapons[1]
