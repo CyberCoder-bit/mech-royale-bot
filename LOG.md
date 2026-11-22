@@ -45,3 +45,5 @@
 | 02:16 | ffa-drops 238bd92 | FFA supply-drop contest variants (off by default) | squad unaffected | best +0.05 ± 0.04 (2 captures); default −0.20 ± 0.15 | not shipped: drops attract top bots |
 | 02:20 | v3es salt 1 449fb9b | bd23fa7 + rngSalt 1 | – | – | **5.04** (salt 0 = 5.10): real per-salt spread looks small |
 | 02:55 | ffa-endgame 3cd57ff (on bd23fa7) | bridge/low-ceiling fix for grown mechs + duel first shot | squad identical | ffa +0.06 ± 0.03 (192), win 33% → 41% | final-build component (squad port of bridge fix requested) |
+| 02:56 | v3es salt 2 d65b7cf | bd23fa7 + rngSalt 2 | – | – | **5.22** NEW BEST (salts: 5.10 / 5.04 / 5.22) |
+| 02:56 | final-s2eg 38e9fc2 | salt 2 + FFA endgame (3cd57ff); squad actions identical | – | ffa +0.06, win 33→41% | pending; top-32 line now 5.77 |
