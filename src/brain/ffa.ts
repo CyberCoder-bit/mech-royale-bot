@@ -73,6 +73,28 @@ export const FP = {
   /** shoot NPC drones within this range above this HP fraction (0 = only when they shoot us) */
   farmNpcR: 60,
   farmNpcHp: 0.75,
+  /** supply drops (off): contest within dropRange m if no healthy idle enemy was seen within dropSafeR m
+   *  of the ring in the last dropMemS s; leave to arrive dropEarlyS s before it lands. Off because no
+   *  variant beat "never contest" in sim FFA (96 paired, deterministic): default -0.20 +- 0.15 (51
+   *  captures; matches with a capture +0.3..0.5, failed attempts cost more), 80 m -0.02, low HP and
+   *  100 m +0.05 +- 0.04, late arrival -0.06, 3rd drop only -0.11, ambush -0.12. */
+  dropUse: 0,
+  dropRange: 180,
+  dropSafeR: 70,
+  dropMemS: 10,
+  dropEarlyS: 2,
+  /** contest only at or below this HP fraction (a capture is a full heal), and from this match time */
+  dropMaxHp: 1,
+  dropMinT: 0,
+  /** stand on the least exposed cell inside the ring instead of its centre */
+  dropSpot: 1,
+  /** drop as bait (off): from ambushLeadS s before landing until it is taken, hold a low-exposure spot
+   *  ambushMinR..ambushR m from a drop within ambushRange m that has a clear shot at the ring */
+  ambushUse: 0,
+  ambushRange: 160,
+  ambushLeadS: 12,
+  ambushR: 90,
+  ambushMinR: 35,
   /** loot only if no enemy was seen within this range in the last 8 s */
   lootSafeR: 120,
   /** endgame: this many alive or a next circle this small; heal to endHeal there, prefer central spots */
@@ -80,6 +102,20 @@ export const FP = {
   endRadius: 70,
   endHeal: 0.95,
   endCenterMul: 3,
+  /** endgame knobs (off): laser duck radius (m), stuck recovery when the zone net can't get back in,
+   *  and with 3 alive let the other two finish their duel (strike only below egWaitFinish) */
+  duckR: 0,
+  /** keep paths off cells near low bridges once we are too tall to fit under them. With duelFresh
+   *  below, 192 paired deterministic sim FFA seeds vs bd23fa7: +0.06 +- 0.03 (18 better, 4 worse),
+   *  win 41% vs 33% (2nd -> 1st 18 times, 1st -> 2nd 3), top-3 63% vs 64%; zone deaths 5 -> 1 (1-96) */
+  bigFix: 1,
+  stuckFix: 0,
+  egWait: 0,
+  egWaitFinish: 0.35,
+  /** final duel (2 alive): open on an unaware enemy within duelFresh m when our HP fraction is at least duelFreshHp (first shot) */
+  duelFresh: 150,
+  duelFreshHp: 0.5,
+  duelFreshAlive: 2,
   /** outside the zone this long (s): drop everything and walk straight back in */
   outsideS: 1.0,
   /** drop a held mortar in FFA (cook-off bait against the laser meta) */
@@ -110,6 +146,8 @@ export const FP = {
   prefLaser: 100,
   prefGun: 75,
   prefLight: 22,
+  /** A* wall-time safety cap of the brain's follower (ms); sims set it huge so only the expansion budget binds (reproducible) */
+  planMs: 12,
   /** run a synchronous full GC at the end of the constructor (before ready) */
   initGc: 1,
   /** debug label */
@@ -210,8 +248,11 @@ export class FfaBrain {
       this.nav = navFor(this.world)
       this.follow = new PathFollower(this.nav)
       // deterministic A* budget (expansions; the wall-time cap is only a safety net) for reproducible sims
-      this.follow.planMs = 12
+      this.follow.planMs = FP.planMs
       ;(this.follow as unknown as { planExpand?: number }).planExpand = 2000
+      // nodes with little free height above them (under bridges): mechs grown by cubes don't fit
+      const nav = this.nav
+      for (let v = 0; v < nav.N; v++) if (nav.st[v] === 1 && nav.ceil[v] < 20) this.lowNodes.push({ c: v >> 1, ceil: nav.ceil[v] })
     } catch (e) {
       log(`[ffa] world/nav unavailable: ${(e as Error).message}`)
     }
@@ -520,8 +561,10 @@ export class FfaBrain {
         if (!e.fresh || !e.weHit || e.d > FP.strikeRange) continue
         const f = e.tr.hp / Math.max(1, e.tr.maxHp)
         const weak = f < FP.weakFrac && hpFrac >= FP.strikeWeakHp
-        const busy = t - e.tr.busyT < FP.busyS && hpFrac >= FP.strikeHp
-        const freshOk = FP.freshRange > 0 && e.d < FP.freshRange && hpFrac >= FP.freshHp && !e.aimAt
+        let busy = t - e.tr.busyT < FP.busyS && hpFrac >= FP.strikeHp
+        if (busy && FP.egWait && obs.alive === 3 && f >= FP.egWaitFinish) busy = false
+        const freshOk = (FP.freshRange > 0 && e.d < FP.freshRange && hpFrac >= FP.freshHp && !e.aimAt) ||
+          (FP.duelFresh > 0 && obs.alive <= FP.duelFreshAlive && e.d < FP.duelFresh && hpFrac >= FP.duelFreshHp && !e.aimAt)
         if (!weak && !busy && !freshOk) continue
         const s = e.d / 100 + f * 1.5 - (busy ? 0.4 : 0)
         if (s < bestS) (bestS = s), (best = e)
@@ -743,6 +786,23 @@ export class FfaBrain {
         goal = loot
         mode = "loot"
       }
+      // supply drop: 3 cubes + full HP and energy for capture_s alone in the ring; only when it's safe
+      // (overrides healing in cover: a capture is a full heal)
+      const dropG = FP.dropUse && hpFrac <= FP.dropMaxHp && t >= FP.dropMinT ? this.dropGoal(obs, P, nc, safeR, nr, st.walk_speed ?? 11.7) : null
+      if (dropG) {
+        goal = dropG
+        mode = "drop"
+        fast = dropG.late
+      }
+      // drop as bait: watch the ring from a low-exposure spot with a clear shot at it; whoever comes to
+      // fight over it is busy (the strike logic third-parties them)
+      if (!dropG && !lying && FP.ambushUse) {
+        const ag = this.ambushGoal(obs, P, nc, safeR, nr, myScale)
+        if (ag) {
+          goal = ag
+          mode = "loot"
+        }
+      }
       if (goal) {
         const dg = dist2(P, [goal.x, goal.y])
         if (dg > (mode === "heal" ? 1.5 : 2.5)) {
@@ -771,12 +831,36 @@ export class FfaBrain {
       }
     }
 
-    // laser telegraph: sidestep across its line (overrides holding still)
+    // laser telegraph: step behind cover within duckR if there is any (the beam is hitscan, a sidestep
+    // rarely beats it), else sidestep across its line (overrides holding still)
     if (laserThreat && mode !== "flee") {
-      const toT = unit(yawTo(P, laserThreat.tr.pos))
-      const perp: V2 = [-toT[1] * this.jinkSign, toT[0] * this.jinkSign]
-      move = norm2([perp[0] * 1.5 + move[0] * 0.5, perp[1] * 1.5 + move[1] * 0.5])
-      if (me.energy > 20 && me.grounded) boost = true
+      const duck = FP.duckR > 0 ? this.duckPoint(P, laserThreat.tr, myScale) : null
+      if (duck) {
+        move = unit(yawTo(P, duck))
+        if (me.grounded) boost = me.energy > 5
+        mode = mode === "fight" ? "fight" : "flee"
+      } else {
+        const toT = unit(yawTo(P, laserThreat.tr.pos))
+        const perp: V2 = [-toT[1] * this.jinkSign, toT[0] * this.jinkSign]
+        move = norm2([perp[0] * 1.5 + move[0] * 0.5, perp[1] * 1.5 + move[1] * 0.5])
+        if (me.energy > 20 && me.grounded) boost = true
+      }
+    }
+
+    // ---- grown mechs (cubes add 5% size each, no cap) don't fit under low bridges: keep our paths off
+    // the cells around them (penalties re-applied every 2 s: the follower's unstick may clear them)
+    if (FP.bigFix && this.follow && this.nav && this.lowNodes.length) {
+      const Hm = 9 * myScale
+      if (Hm > this.penH + 0.3 || t - this.penT > 2) {
+        const nav = this.nav
+        const rc = Math.ceil((2.5 * myScale + 1.5) / nav.cs)
+        for (const ln of this.lowNodes) {
+          if (ln.ceil >= Hm + 0.5) continue
+          for (let dj = -rc; dj <= rc; dj++) for (let di = -rc; di <= rc; di++) this.follow.pf.cellPenalty.set(ln.c + dj * nav.w + di, 400)
+        }
+        this.penH = Hm
+        this.penT = t
+      }
     }
 
     // ---- zone safety net: outside the circle for a moment -> straight back in, whatever the plan
@@ -799,12 +883,25 @@ export class FfaBrain {
           if (sc > bs) (bs = sc), (dir = u)
         }
       }
-      move = dir
       boost = me.energy > 8 && me.grounded
       jump = false
+      // no progress while trying to get back in (a ledge or wall the walk test missed): alternate
+      // sides and hop with jets
+      if (FP.stuckFix) {
+        const op = this.outProg
+        if (!op || dist2(P, op.p) > 2.5) this.outProg = { p: [P[0], P[1]], t }
+        else if (t - op.t > 1.2) {
+          const side = Math.floor((t - op.t) / 1.5) % 2 ? 1 : -1
+          const a = Math.atan2(dir[1], dir[0]) + side * 0.8
+          dir = unit(a)
+          if (me.grounded) jump = true
+          else boost = me.energy > 3
+        }
+      }
+      move = dir
       if (this.follow) this.follow.clear()
       mode = mode === "fight" ? "fight" : "move"
-    }
+    } else this.outProg = null
 
     // ---- take weapons in reach
     const reach = this.cfg.loot.pickup_radius ?? 4
@@ -1017,6 +1114,108 @@ export class FfaBrain {
     if (TRACE) log(`[ffa ${obs.self.id} ${this.bid}] t=${t.toFixed(1)} SPOT ${why} d=${dist2(P, [pick.x, pick.y]) | 0} exp=${this.ex ? this.ex.exposureAt(pick.x, pick.y, pick.z).toFixed(2) : "-"} n=${spots.length}`)
     return this.spot
   }
+
+  /**
+   * A supply drop we can reach by its landing time (or that has landed) with nobody else capturing it
+   * and no healthy, idle enemy seen near its ring recently (busy or weak ones don't count). Returns the
+   * ring centre, and whether we are late (boost).
+   */
+  private dropGoal(obs: Observation, P: V3, nc: V2, safeR: number, nr: number, walk: number) {
+    const t = obs.t
+    let best: { x: number; y: number; z: number; late: boolean } | null = null
+    let bd = Infinity
+    for (const dr of obs.drops ?? []) {
+      const d = dist2(P, dr.pos)
+      if (d > FP.dropRange) continue
+      if (nr > 1 && dist2(dr.pos, nc) > safeR + 10) continue
+      const eta = (d * 1.25) / Math.max(5, walk) + 1
+      if (dr.lands_in > eta + FP.dropEarlyS) continue // too early: don't wait in the open
+      if (dr.holder !== null && dr.holder !== undefined && dr.holder !== obs.self.id && dr.progress > 0.3) continue
+      let danger = false
+      for (const tr of this.tracks.values()) {
+        if (t - tr.seenT > FP.dropMemS || dist2(tr.pos, dr.pos) > FP.dropSafeR) continue
+        const weak = tr.hp / Math.max(1, tr.maxHp) < FP.weakFrac
+        const busy = t - tr.busyT < FP.busyS
+        if (!weak && !busy) danger = true
+      }
+      if (danger) continue
+      if (d < bd) {
+        bd = d
+        best = { x: dr.pos[0], y: dr.pos[1], z: dr.pos[2], late: dr.lands_in < eta - 2 }
+        // stand on the least exposed walkable cell inside the ring (it counts anywhere within radius)
+        if (FP.dropSpot && this.ex) {
+          const key = `${dr.id}`
+          if (this.dropSpotKey !== key) {
+            const sp = this.ex.bestSpots(dr.pos, Math.max(1, (dr.radius ?? 8) - 2), 1, { minSpacing: 1 })
+            this.dropSpotKey = key
+            this.dropSpotPt = sp.length && Math.abs(sp[0].z - dr.pos[2]) < 2 ? [sp[0].x, sp[0].y, sp[0].z] : null
+          }
+          if (this.dropSpotPt) (best.x = this.dropSpotPt[0]), (best.y = this.dropSpotPt[1]), (best.z = this.dropSpotPt[2])
+        }
+      }
+    }
+    return best
+  }
+  outProg: { p: V2; t: number } | null = null
+  lowNodes: { c: number; ceil: number }[] = []
+  penH = 0
+  penT = -99
+  /** nearest point within duckR that blocks one shooter's shot line (walkable straight line from us) */
+  private duckPoint(P: V3, tr: Track, myScale: number): V2 | null {
+    const nav = this.nav
+    if (!nav) return null
+    if (!this.shotReaches(tr, P, myScale)) return null
+    for (const r of [3, 5.5, 8, 11]) {
+      if (r > FP.duckR) break
+      for (let k = 0; k < 12; k++) {
+        const a = (k / 12) * Math.PI * 2
+        const x = P[0] + Math.cos(a) * r, y = P[1] + Math.sin(a) * r
+        const n = nav.nodeAt(x, y, P[2] + 1.5)
+        if (n < 0 || Math.abs(nav.hz[n] - P[2]) > 2) continue
+        if (!nav.lineWalkable(P[0], P[1], P[2], x, y, 15)) continue
+        if (this.shotReaches(tr, [x, y, nav.hz[n]], myScale)) continue
+        return [x, y]
+      }
+    }
+    return null
+  }
+  ambushKey = ""
+  ambushPt: V3 | null = null
+  private ambushGoal(obs: Observation, P: V3, nc: V2, safeR: number, nr: number, myScale: number) {
+    const ex = this.ex, w = this.world
+    if (!ex || !w) return null
+    let best: (typeof obs.drops)[number] | null = null
+    let bd = Infinity
+    for (const dr of obs.drops ?? []) {
+      const d = dist2(P, dr.pos)
+      if (d > FP.ambushRange || dr.lands_in > FP.ambushLeadS) continue
+      if (nr > 1 && dist2(dr.pos, nc) > safeR + 10) continue
+      if (d < bd) (bd = d), (best = dr)
+    }
+    if (!best) return null
+    const key = `${best.id}`
+    if (this.ambushKey !== key) {
+      this.ambushKey = key
+      this.ambushPt = null
+      const c = best.pos
+      const tgt: V3 = [c[0], c[1], c[2] + 4.5]
+      const spots = ex.bestSpots(c, FP.ambushR, 12, {
+        avoid: [c],
+        avoidRadius: FP.ambushMinR,
+        minSpacing: 8,
+        penalty: (x, y) => (FP.travelW * Math.hypot(x - P[0], y - P[1])) / 100 + (nr > 1 && Math.hypot(x - nc[0], y - nc[1]) > safeR ? 5 : 0),
+      })
+      for (const sp of spots) {
+        if (Math.abs(sp.z - w.groundZ(sp.x, sp.y)) > 2.5) continue
+        if (!w.shotClear([sp.x, sp.y, sp.z + 7 * myScale], tgt)) continue
+        this.ambushPt = [sp.x, sp.y, sp.z]
+        break
+      }
+    }
+    return this.ambushPt ? { x: this.ambushPt[0], y: this.ambushPt[1], z: this.ambushPt[2] } : null
+  }
+  dropSpotKey = ""
+  dropSpotPt: V3 | null = null
 
   /** Nearby visible cubes, a better slot-1 weapon, or our kill's cubes, when nothing threatens us. */
   private lootGoal(obs: Observation, P: V3, nc: V2, safeR: number, hpFrac: number) {
