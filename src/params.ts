@@ -92,6 +92,10 @@ export const P = {
   travelBoostD: 80,
   /** Crossfire: with 2+ attackers holding a line on us, step (up to this radius, m) to where at most one does (0 = off). */
   xfireR: 0,
+  /** Target the attacker that hit us in the last 2 s (extra score bonus; 0 = off). */
+  tgtRecentAtk: 0,
+  /** Rear hit by an unseen attacker while shooting a non-attacker: drop it and face the shooter. */
+  rearReveal: false,
   laserSwitchS: 0.12,
   /** Fight: walk over visible cubes within this range (m) while fighting (0 = off). */
   cubeGrab: 0,

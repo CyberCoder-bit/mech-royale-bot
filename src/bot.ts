@@ -141,6 +141,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   let curTarget: number | null = null
   let lastAttackerId: number | null = null
   let ffaEvidence = 0
+  let lastRearT = -99
   let holdSpot: V3 | null = null
   let holdUntil = -1
   let duckPt: V2 | null = null
@@ -190,6 +191,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
             lastHurtT = t
             hurtBearing = ev.bearing
             if (ev.by < 100) lastAttackerId = ev.by
+            if (ev.rear) lastRearT = t
             const tr = tracks.get(ev.by)
             if (tr) tr.lastAttack = t
             else
@@ -354,9 +356,15 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         }
         let s = d / 100 + ef * PRM.tgtHp
         if (attacker) s -= PRM.tgtAttacker
+        if (t - tr.lastAttack < 2) s -= PRM.tgtRecentAtk // the one shooting us right now: face it (rear hits x1.5)
         if (!tr.los) s += PRM.tgtNoLos
         if (e.id === curTarget) s -= PRM.tgtSticky + PRM.tgtFocus * (1 - ef)
         if (s < tScore) (tScore = s), (target = e)
+      }
+      // shot in the back by someone we cannot see while busy with a non-attacker: turn to face the shooter instead
+      if (PRM.rearReveal && target && t - lastRearT < 1.5 && lastAttackerId !== null && !isThreat(tracks.get(target.id)!)) {
+        const la = tracks.get(lastAttackerId)
+        if (!la || !la.listed) target = null
       }
       curTarget = target ? target.id : null
       const tgtTrack = target ? tracks.get(target.id)! : null
