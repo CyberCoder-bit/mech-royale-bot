@@ -707,6 +707,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
     if (!desired && t - lastHurtT < 4 && hurtBearing !== null) desired = [hurtBearing, 0]
     if (!desired && attention && t - attention.t < 3) desired = [attention.yaw + Math.sin(scanPhase) * 0.3, 0]
     if (!desired && t < PRM.openScanS) desired = [me.aim[0] + 1.5, -0.05] // look all around once: find loot
+    if (!desired && Q.idleSpin > 0) desired = [me.aim[0] + Q.idleSpin, -0.05] // keep turning: spot hunters at 200 m before they spot us
     if (!desired) {
       scanPhase += 0.12
       const base = Math.hypot(move[0], move[1]) > 0.5 ? Math.atan2(move[1], move[0]) : me.aim[0]
