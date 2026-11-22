@@ -11,3 +11,4 @@ recipes.json
 
 # agent worktrees and local Claude state
 .claude/
+.playwright-mcp/
