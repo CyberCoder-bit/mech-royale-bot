@@ -17,3 +17,4 @@
 | 23:18 | sq 4f97c93 | official result | sim predicted 4.71 / HK0 4.60 | – | **4.63** NEW BEST (entered in final) |
 | 23:28 | sim: v2 upgrade order | damage-first / mixed (gun_rate early) vs survival-first | base 4.42 ± 0.31; dmg +0.08 ± 0.36; mix +0.15 ± 0.34 | – | not submitted (noise) |
 | 23:30 | sim: v2 death analysis | mean death 80 s, none past 3:00; killed by easy 30/48; 3.6 kills/min alive | → lever = survival per kill | – | – |
+| 23:31 | core world perf d1e337f | allocation-free LOS, nav.bin.gz precompute, A* cap 8000, warm-up | v2+new world 4.60 vs 4.44 (+0.17 ± 0.16) | – | not submitted (folded into next sq candidate) |
