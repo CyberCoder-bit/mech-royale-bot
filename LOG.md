@@ -50,3 +50,5 @@
 | 03:01 | final-s2eg 38e9fc2 | official | squad actions identical on stream | – | **4.92** (vs salt 2 5.22): wall-time-capped planning makes real runs path-dependent; re-picked salt 2 (BB-327713BA, 5.22) as final entry |
 | 03:01 | lightning-first 1e814e2 | final-s2eg + weaponPref lightning > laser > mortar (house lasers did 76% of real damage; lightning shorts lasers) | – | – | pending (real A/B) |
 | 03:04 | squad-ceiling 06707d6 | low-ceiling fix in squad path follower | −0.01 ± 0.00 (480), aim0.6 −0.00 | – | not shipped; stuck time is mostly failed roof-loot climbs (~2 s/match) |
+| 03:06 | lightning-first 1e814e2 | official | – | – | **4.46** (−0.46 vs its base 4.92): laser-first is right |
+| 03:06 | v3es salt 3 5529620 | bd23fa7 + rngSalt 3 (lottery ticket) | – | – | pending |
