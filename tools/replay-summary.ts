@@ -685,7 +685,7 @@ if (flag("--json") || flag("--archetypes")) {
   for (const [k, g] of [...groups.entries()].sort()) arch[k] = archetypeReport(g)
   arch["ALL"] = archetypeReport([...mechs.values()])
 }
-const meta = { source: src, format: header.format ?? null, seed: header.seed ?? null, ticks: result?.ticks ?? lastTick, duration_s: r1(lastTick / HZ, 2), frames: frames.length,
+const meta = { source: src, format: header.format ?? null, seed: header.seed ?? null, has_result: !!result, ticks: result?.ticks ?? lastTick, duration_s: r1(lastTick / HZ, 2), frames: frames.length,
   terrain: !!ground, inferred: { gun_speed: r1(GUN_SPEED), npc_bullet_speed: r1(q(projSpeeds["2"] ?? [], 0.9)), mortar_horiz_speed_p90: r1(q(projSpeeds["1"] ?? [], 0.9)),
     walk_speed_p90: r1(q([...mechs.values()].flatMap((s) => s.speeds_walk), 0.9)), boost_speed_p95: r1(q([...mechs.values()].flatMap((s) => s.speeds_boost), 0.95)),
     laser_hold_median: r1(q([...mechs.values()].flatMap((s) => s.charge_runs), 0.5), 2), charge_event_dur_median: r1(q([...mechs.values()].flatMap((s) => s.charge_durs), 0.5), 2) }, winner: [...mechs.values()].find((s) => s.place === 1)?.id ?? null }

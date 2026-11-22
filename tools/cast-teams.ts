@@ -2,10 +2,10 @@
 /**
  * Aggregate several mechreplay/1 files (e.g. recorded showdown casts) per mech name (team) or archetype.
  *
- *   bun tools/cast-teams.ts <file-or-dir> [more files/dirs...] [--json]
+ *   bun tools/cast-teams.ts <file-or-dir> [more files/dirs...] [--json] [--partial]
  *
  * Runs tools/replay-summary.ts --json on each file and pools the per-mech results by name.
- * Directories are scanned for *.jsonl and *.jsonl.gz (files without a result line or with < 100 frames are skipped).
+ * Directories are scanned for *.jsonl and *.jsonl.gz. Files with < 100 frames, or without a result line (unless --partial), are skipped.
  */
 import { readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
@@ -38,6 +38,7 @@ for (const f of files) {
   let S: any
   try { S = JSON.parse(p.stdout.toString()) } catch { console.error(`skip ${f}: bad json`); continue }
   if (S.meta.frames < 100) { console.error(`skip ${f}: only ${S.meta.frames} frames`); continue }
+  if (!S.meta.has_result && !args.includes("--partial")) { console.error(`skip ${f}: no result line yet (match in progress?); pass --partial to include`); continue }
   const dur = S.meta.duration_s
   used.push({ file: f, seed: S.meta.seed, duration: dur, winner: S.mechs.find((m: any) => m.place === 1)?.name ?? null })
   for (const m of S.mechs) {
