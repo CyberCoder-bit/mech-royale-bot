@@ -15,13 +15,33 @@ export function makeBot(hello: Hello, profile?: string) {
   // accuracy bookkeeping: shots = gun ammo drops, hits = hit events on mechs (ids < 100)
   let lastAmmo = -1, shots = 0, hitsMech = 0, hitsOther = 0, laserShots = 0, laserHits = 0, lastLaserCd = 0
   const quiet = process.env.TRACE_QUIET === "1"
-  let acc = "", lastAccLine = ""
-  process.on("exit", () => console.error(lastAccLine))
+  const stuckTrace = process.env.TRACE_STUCK === "1"
+  let acc = "", lastAccLine = "", lastStuck = ""
+  let refT = -1, refX = 0, refY = 0, stuckS = 0
+  const stuckBy = new Map<string, number>()
+  process.on("exit", () => console.error(lastAccLine + "\n" + lastStuck))
   return {
     name: b.name,
     act(o: Observation) {
       const a = b.act(o)
       const d = draw.take()
+      // replicate the sim's stuck metric: commanded |move| > 0.3 and < 1 m progress per 1 s window
+      const ml = Math.hypot(a.move?.[0] ?? 0, a.move?.[1] ?? 0)
+      if (ml > 0.3) {
+        if (refT < 0) (refT = o.t), (refX = o.self.pos[0]), (refY = o.self.pos[1])
+        else if (o.t - refT >= 1) {
+          if (Math.hypot(o.self.pos[0] - refX, o.self.pos[1] - refY) < 1) {
+            stuckS += o.t - refT
+            const key = (d?.label ?? "").split(" ")[1] ?? "?"
+            stuckBy.set(key, (stuckBy.get(key) ?? 0) + (o.t - refT))
+            if (stuckTrace) console.error(`STUCK t=${o.t.toFixed(1)} ${d?.label ?? ""} pos=(${o.self.pos.map((v) => v.toFixed(1)).join(",")}) move=${a.move?.map((v) => v.toFixed(2))}`)
+          }
+          refT = o.t
+          refX = o.self.pos[0]
+          refY = o.self.pos[1]
+        }
+      } else refT = -1
+      lastStuck = `STUCKSUM ${stuckS.toFixed(1)} s by mode: ${[...stuckBy].map(([k, v]) => `${k}=${v.toFixed(1)}`).join(" ")}`
       const gun = o.self.weapons.find((w) => w?.kind === "gun")
       if (gun && gun.ammo !== undefined) {
         if (lastAmmo >= 0 && gun.ammo < lastAmmo) shots += lastAmmo - gun.ammo
