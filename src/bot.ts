@@ -158,6 +158,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   let xfPt: V3 | null = null
   let xfUntil = -1
   let fbOn = false
+  let squadProof = false
+  const probeHit = new Map<number, number>()
   const pickMem = new Map<number, { kind: WeaponKind; pos: V3; t: number }>()
   let soundPt: { x: number; y: number; t: number } | null = null
   let mode = "idle"
@@ -219,6 +221,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           if (ev.reason === "gone") pickMem.delete(ev.id)
         } else if (ev.type === "hit") {
           lastDealT = t
+          if (PRM.earlyProbe && ev.target < 100 && !probeHit.has(ev.target) && (tracks.get(ev.target)?.lastAttack ?? -99) < 0) probeHit.set(ev.target, t)
         } else if (ev.type === "kill") {
           kills++
           tracks.delete(ev.target)
@@ -242,7 +245,14 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         if (ffaEvidence >= 2) ffa = true
       }
       const sq = !ffa
-      const earlySafe = PRM.earlySafeT > 0 && sq && t < PRM.earlySafeT
+      // squad proof: a mech we shot (that had never shot at us) still has not shot back after probeS s -> practice squad
+      if (PRM.earlyProbe && !squadProof)
+        for (const [id, t0] of probeHit) {
+          const tr = tracks.get(id)
+          if (!tr || tr.lastAttack >= t0 - 0.5) probeHit.delete(id)
+          else if (t - t0 >= PRM.probeS && t - tr.lastListed < 1) squadProof = true
+        }
+      const earlySafe = PRM.earlySafeT > 0 && sq && t < PRM.earlySafeT && !squadProof
       // ==== FFA hook (2/2): tick() always updates its memory; it acts only after 2+ deaths we didn't cause, before 150 s ====
       const ffaAct = ffaBrain?.tick(obs, ffa)
       if (ffaAct) return ffaAct
@@ -368,7 +378,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
         if (!attacker) {
           // passive (or not yet hostile) mech: engage only when we can afford it
           let allowed = !healing && (hpFrac >= PRM.engageHp || ef < PRM.finishHp || d < PRM.closeEngage)
-          if (earlySafe && PRM.earlySafeFinish && ef >= PRM.finishHp) allowed = false
+          if (earlySafe && PRM.earlySafeFinish && !PRM.earlyProbe && ef >= PRM.finishHp) allowed = false
           if (knownWeapon && PRM.lootFirstIgnore > 0 && d > PRM.lootFirstIgnore && e.id !== curTarget) allowed = false
           // a mech is shooting us: no passive targets (only nearly dead ones) until it is dealt with
           if (PRM.atkOnly > 0 && sq && t - lastMechHurtT < PRM.atkOnly && ef >= PRM.finishHp) allowed = false
