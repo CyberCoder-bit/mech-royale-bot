@@ -93,7 +93,9 @@ export class PathFollower {
   private plan(t: number, x: number, y: number, z: number, energy: number, climbPerM: number) {
     const g = this.goal!
     const maxClimb = Math.max(0, Math.min(this.maxClimb, (energy - 8) / climbPerM))
-    const res = this.pf.findPath(x, y, z, g.x, g.y, g.z, { maxMs: this.planMs, maxClimb: Math.min(g.climbCap, Math.max(maxClimb, 12)) })
+    // long trips: greedier search (far fewer expansions); short ones: near-optimal
+    const far = Math.hypot(g.x - x, g.y - y) > 120
+    const res = this.pf.findPath(x, y, z, g.x, g.y, g.z, { maxMs: this.planMs, maxClimb: Math.min(g.climbCap, Math.max(maxClimb, 12)), weight: far ? 1.8 : 1.25 })
     this.planT = t
     this.path = res
     this.px.length = this.py.length = this.pz.length = this.kinds.length = 0

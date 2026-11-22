@@ -105,6 +105,16 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
   let engagedId = -1
   let engagedLosT = -99
 
+  // MR_TIMING=1: log slow ticks with a per-section breakdown (stderr)
+  const timing = typeof process !== "undefined" && !!process.env?.MR_TIMING
+  let profAt = 0
+  let profStr = ""
+  const mark = (label: string) => {
+    if (!timing) return
+    const now = performance.now()
+    if (now - profAt > 0.5) profStr += ` ${label}=${(now - profAt).toFixed(1)}`
+    profAt = now
+  }
   const pickUpgrade = (choices: OfferChoice[]) => {
     let best = 0, bestRank = 1e9
     choices.forEach((c, i) => {
@@ -121,6 +131,8 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
 
   function decide(obs: Observation): BotAction {
     const tick0 = performance.now()
+    profAt = tick0
+    profStr = ""
     const t = obs.t
     const me = obs.self
     const P = me.pos as V3
@@ -157,7 +169,9 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
     }
 
     // ---------------- tracking (own LOS: the server also lists remembered, hidden mechs)
+    mark("pre")
     tracker.update(obs, world, muzzle, myCenter, myTop)
+    mark("tracker")
     const enemies = tracker.enemies(t, 6)
     const known = tracker.enemies(t, Q.threatMemory)
     const visible = enemies.filter((e) => e.los && !e.ghost)
@@ -277,6 +291,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
         if (!dropGoal || dd < dist2(P, dropGoal)) dropGoal = [d.pos[0], d.pos[1], d.pos[2]]
       }
 
+    mark("lootmem+zone+target")
     // ---------------- mode
     const prevMode = mode
     const lowHp = hpFrac < Q.v1RetreatHp
@@ -321,12 +336,13 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
       }
       const c = findCover(world, nav, {
         pos: P, eyes, threatPos: tps, maxDist, zoneC: nc, zoneR: nr < 1 ? 0 : Math.max(nr - margin * 0.5, 8),
-        bodyH, budgetMs: clamp(PRM.tickBudgetMs - 3 - (performance.now() - tick0), 0.3, 2.5), maxDz: 3, wiggle: 0,
+        bodyH, budgetMs: clamp(PRM.tickBudgetMs - 3 - (performance.now() - tick0), 0.3, 2), maxDz: 3, wiggle: 0,
       })
       cover = c ? { x: c.x, y: c.y, z: c.z, t, key } : null
       if (!c) cover = null
     }
 
+    mark("mode")
     // ---------------- movement
     let move: V2 = [0, 0]
     let boost = false
@@ -345,7 +361,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
       }
       follow.allowHop = mode !== "fight" && mode !== "retreat" && mode !== "evade"
       follow.setGoal(x, y, zz, tol, 6, climbCap)
-      follow.planMs = clamp(PRM.tickBudgetMs - (performance.now() - tick0), 1, 6)
+      follow.planMs = clamp(PRM.tickBudgetMs - (performance.now() - tick0), 0.8, PRM.planMs)
       const o = follow.update({ t, pos: P, vel: me.vel, grounded: me.grounded, energy: me.energy, climbEnergyPerM: climbPerM })
       move = o.move
       jump = o.jump
@@ -412,7 +428,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
         // line of sight lost: step to the nearest spot with a clear shot at its live position
         if (world && nav && (!peek || t - peek.t > 0.5 || peek.id !== ft.id)) {
           const tc: V3 = [ft.pos[0], ft.pos[1], ft.pos[2] + ft.aimDz]
-          const pk = findPeek(world, nav, P, tc, muzH, Q.peekSearch, clamp(PRM.tickBudgetMs - 4 - (performance.now() - tick0), 0.3, 1.5), nc, nr < 1 ? 0 : Math.max(nr - margin * 0.5, 8))
+          const pk = findPeek(world, nav, P, tc, muzH, Q.peekSearch, clamp(PRM.tickBudgetMs - 4 - (performance.now() - tick0), 0.3, 1), nc, nr < 1 ? 0 : Math.max(nr - margin * 0.5, 8))
           peek = pk ? { x: pk.x, y: pk.y, z: pk.z, t, id: ft.id } : { x: NaN, y: NaN, z: NaN, t, id: ft.id }
         }
         if (peek && Number.isFinite(peek.x)) goTo(peek.x, peek.y, peek.z, 1.2, 2)
@@ -543,6 +559,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
     else if (goalLabel === "strafe" && me.vel[2] > 0 && P[2] < lastGroundZ + 3.5 && me.energy > 20) boost = true // clear a low obstacle
     lastPos = [P[0], P[1], P[2]]
 
+    mark("movement")
     // ---------------- aim and fire
     let desired: [number, number] | null = null
     let primary: Primary = "gun"
@@ -658,6 +675,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
       desired = [base + Math.sin(scanPhase) * 0.9, -0.05]
     }
 
+    mark("aim+fire")
     // ---------------- take weapons in reach
     for (const p of obs.pickups ?? []) {
       if (p.kind === "gun" || slotOf(p.kind) >= 0) continue
@@ -710,8 +728,16 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
   const bot: Bot = {
     name: profile === "pacifist" ? "mr-probe" : "mr-v1",
     act(obs: Observation): BotAction {
+      const a0 = timing ? performance.now() : 0
+      const c0 = timing ? process.cpuUsage() : null
       try {
-        return decide(obs)
+        const a = decide(obs)
+        if (timing) {
+          const ms = performance.now() - a0
+          const c = process.cpuUsage(c0!)
+          if (ms > 8) log(`slow tick ${obs.tick} t=${obs.t}: wall ${ms.toFixed(1)} ms cpu ${((c.user + c.system) / 1000).toFixed(1)} ms mode=${mode} |${profStr}`)
+        }
+        return a
       } catch (e) {
         errors++
         if (errors <= 5 || errors % 100 === 0) log(`v1 act failed at t=${obs.t} (${errors}):`, e)

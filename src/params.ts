@@ -96,8 +96,9 @@ export const P = {
   ffaOverrides: { healHp: 0.9 } as Record<string, unknown>,
   /** Wall-time cap (ms) of the JIT warm-up at hello (synthetic decisions). */
   warmMs: 700,
-  /** Soft per-tick compute budget (ms) for optional work (replans, cover searches). */
-  tickBudgetMs: 12,
+  /** Soft per-tick compute budget (ms) for optional work (replans, cover searches), and the A* cap per plan. */
+  tickBudgetMs: 9,
+  planMs: 4,
   /** Draw the path and cover point (debug, team only). */
   debugDraw: true,
 }
