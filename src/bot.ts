@@ -7,7 +7,7 @@
  * ones), heal cycles (hold fire on passive targets while hurt), and hunting remembered enemies.
  */
 import { draw, log, type ActorObs, type Bot, type BotAction, type Hello, type Observation, type OfferChoice, type WeaponKind } from "./mechfight.ts"
-import { aimAt, ballisticPitch, leadPoint } from "./brain/aim.ts"
+import { aimAt, ballisticPitch, leadPoint, leadPointBallistic } from "./brain/aim.ts"
 import { angDiff, clamp, dist2, dist3, rng, unit, yawTo, type V2, type V3 } from "./util/math.ts"
 import { P as PRM, type Profile } from "./params.ts"
 import { loadWorld, navFor, PathFollower, type World } from "./world/index.ts"
@@ -54,6 +54,9 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
   const jetDrain = Number((cfg.mech as Record<string, unknown>).jet_drain ?? 15)
   const mortarG = Number((cfg.weapons.mortar as Record<string, unknown>)?.gravity ?? 22) || 22
   const mortarSplash = Number((cfg.weapons.mortar as Record<string, unknown>)?.splash_radius ?? 7) || 7
+  const mechG = Number((cfg.mech as Record<string, unknown>).gravity ?? 22) || 22
+  /** observed rise speed while jetting: max_rise_speed minus one tick of gravity (stream: 8.9) */
+  const jetRise = (Number((cfg.mech as Record<string, unknown>).max_rise_speed ?? 10) || 10) - mechG * 0.05
 
   // ---- map model (optional: every use is guarded)
   let world: World | null = null
@@ -421,7 +424,11 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile): Bot & { d
           desired = laserAim = aimAt(muzzle, hitscanPt)
         }
         const gunSpeed = gunW?.stats.speed ?? 252
-        const gunSol = leadPoint(muzzle, c, [v[0], v[1], v[2] * 0.3], gunSpeed)
+        // grounded mechs report vel[2] = 0 exactly; airborne ones fall at gravity unless jetting (constant ~8.9 m/s rise)
+        const airborne = Math.abs(v[2]) > 0.05
+        const gunSol = PRM.gravityLead && airborne
+          ? leadPointBallistic(muzzle, c, v, gunSpeed, mechG, target.pos[2], world ? world.surfaceZ(target.pos[0], target.pos[1], target.pos[2]) : -1e9, Math.abs(v[2] - jetRise) < 0.3)
+          : leadPoint(muzzle, c, [v[0], v[1], v[2] * 0.3], gunSpeed)
         const gunAim = aimAt(muzzle, gunSol.at)
         if (primary === "gun" || !desired) desired = gunAim
         // keep the gun busy: lightning's cone covers the gun's lead point, and a laser only needs its

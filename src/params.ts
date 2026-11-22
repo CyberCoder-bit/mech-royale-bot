@@ -85,6 +85,8 @@ export const P = {
   openScanS: 2,
   /** Aim at the gun's lead point while lightning fires or a laser charges (switch to the laser aim this long before full charge). */
   gunDuringCharge: false,
+  /** Lead airborne targets with gravity (jetting ones at constant rise), floor at the surface below them. */
+  gravityLead: false,
   laserSwitchS: 0.12,
   /** Fight: walk over visible cubes within this range (m) while fighting (0 = off). */
   cubeGrab: 0,
