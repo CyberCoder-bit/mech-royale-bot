@@ -134,6 +134,8 @@ export const P = {
    * HK0 -0.29 +- 0.16, FFA +1.07 +- 0.35 (deaths before the FFA takeover 13 -> 7-11 of 96).
    */
   earlySafeT: 15,
+  /** Salt mixed into the bot's RNG seed (0 = unchanged). Variants with different salts play the same strategy with different random choices. */
+  rngSalt: 0,
   earlySafeFinish: true,
 }
 
