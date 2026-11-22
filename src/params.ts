@@ -35,4 +35,68 @@ export const P = {
   zoneMarginMax: 40,
   /** FFA detector: deaths not caused by us beyond this slack switch to FFA mode. */
   ffaSlack: 1,
+
+  // ---------------- squad tactics (sq)
+  /** Use the map model (LOS gates, nav paths). */
+  useWorld: true,
+  /** Gate gun/laser/lightning fire on a clear shot line (prisms + terrain). */
+  losGate: true,
+  /** Target score weights: attacker bonus, no-LOS penalty, stickiness bonus, HP weight. */
+  tgtAttacker: 2.0,
+  tgtNoLos: 1.2,
+  tgtSticky: 0.4,
+  tgtHp: 1.0,
+  /** An enemy that damaged us within this many seconds counts as an attacker. */
+  attackerS: 6,
+  /** Engage non-attackers only at or above this HP fraction (unless they are weak or close). */
+  engageHp: 0.0,
+  /** ...or when they are below this HP fraction (finish them), or closer than this (m). */
+  finishHp: 0.35,
+  closeEngage: 0,
+  /** Heal: with no attacker and HP below this, hold fire on passive targets, crates and NPCs. */
+  healHp: 0.0,
+  /** Hunt: with no target and HP at or above this, path toward remembered enemies / sounds. */
+  huntHp: 0.6,
+  /** Hunt: forget remembered enemy positions after this many seconds. */
+  huntMemS: 40,
+  /** Hunt: stop hunting at this match time (everyone hunts us after ~330 s). */
+  huntUntil: 330,
+  /** Torso scan amplitude (rad) while hunting/travelling. */
+  scanAmp: 0.9,
+  /** Supply drops: go capture one within this range (m); 0 = off. Arrive no earlier than this before landing (s). */
+  dropRange: 0,
+  dropEarlyS: 4,
+  /** ...also while fighting when the drop is this close (m). */
+  dropFightRange: 90,
+  /** Focus: extra score bonus for the current target per unit of HP it has lost (finish what we started). */
+  tgtFocus: 2,
+  /** Preferred range (m) vs passive (non-attacking) targets: with lightning / gun only; 0 = same as attackers. */
+  passiveRangeL: 22,
+  passiveRangeG: 35,
+  /** Loot memory: remembered weapon pickups within this range (m) while slot 1 is empty (0 = off: visible only). */
+  lootMemRange: 320,
+  /** While slot 1 is empty and a weapon is known: ignore passive targets farther than this (m). */
+  lootFirstIgnore: 40,
+  /** Spin the torso this long at the start (s) to see loot all around. */
+  openScanS: 2,
+  /** Duck: an enemy charging a laser at us with a clear line -> move to the nearest cover within this radius (m); 0 = off. */
+  duckR: 0,
+  /** Reveal: shot by an attacker we can't see within this many seconds -> face it and advance to see it (0 = off). */
+  revealS: 3,
+  /** Reveal: assumed attacker distance (m) when we never saw it; stop advancing this close to the estimate. */
+  revealDist: 60,
+  revealStop: 30,
+  /** Reveal: blind gun fire at the estimate (trees don't stop shots). */
+  revealFire: true,
+}
+
+/**
+ * Experiment hook: MR_PARAMS='{"healHp":0.7}' overrides tunables for local sim runs (shallow merge).
+ * Never set in a match container; ignored when absent or invalid.
+ */
+try {
+  const env = typeof process !== "undefined" ? process.env?.MR_PARAMS : undefined
+  if (env) Object.assign(P, JSON.parse(env))
+} catch {
+  // keep defaults
 }
