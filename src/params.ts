@@ -35,6 +35,8 @@ export const P = {
   zoneMarginMax: 40,
   /** FFA detector: deaths not caused by us beyond this slack switch to FFA mode. */
   ffaSlack: 1,
+  /** v1: deaths not caused by us beyond this switch to FFA overrides (2 tolerates stray zone/NPC deaths in practice). */
+  v1FfaSlack: 2,
 
   // ---------------- v1 (map-aware) parameters
   /** Map model on/off (off = v1 logic with straight-line movement and no LOS gates). */

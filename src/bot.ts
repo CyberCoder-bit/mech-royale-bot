@@ -163,7 +163,7 @@ export function makeBot(hello: Hello, profile: Profile = PRM.profile, opts: { wa
       } else if (ev.type === "hit") lastDealtT = t
       else if (ev.type === "kill") kills++
     }
-    if (!ffa && totalMechs - obs.alive > kills + PRM.ffaSlack) ffa = true
+    if (!ffa && totalMechs - obs.alive > kills + PRM.v1FfaSlack) ffa = true
     const Q = ffa ? PFFA : PSQ
     if (obs.offer && obs.offer.choices?.length) act.pick = pickUpgrade(obs.offer.choices)
     for (const s of obs.sounds ?? []) {
